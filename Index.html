@@ -4,21 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>USS Montana: Final Debug</title>
+    <title>USS Montana: Vector Correction</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; text-shadow: 1px 1px 2px black; z-index: 100; }
-        
-        /* Controls */
         .stick-container { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); z-index: 200; }
         .knob { position: absolute; width: 40px; height: 40px; background: #fff; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-        
         #stick-move { bottom: 40px; left: 40px; width: 100px; height: 100px; }
         #stick-aim { bottom: 40px; right: 40px; width: 100px; height: 100px; }
-        
         #fire-btn { 
             position: absolute; bottom: 160px; right: 40px; width: 100px; height: 100px; 
-            border-radius: 50%; background: radial-gradient(#ff6666, #cc0000); border: 4px solid #fff;
+            border-radius: 50%; background: radial-gradient(#ff4444, #aa0000); border: 4px solid #fff;
             color: white; font-weight: bold; font-size: 18px; display: flex; align-items: center; justify-content: center;
             cursor: pointer; z-index: 300; -webkit-tap-highlight-color: transparent; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
         }
@@ -42,20 +38,20 @@
     <script type="module">
         import * as THREE from 'three';
 
-        // --- 1. ENGINE SETUP ---
+        // --- ENGINE ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87CEEB); 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
         const sun = new THREE.DirectionalLight(0xffffff, 1.5);
         sun.position.set(50, 100, 50);
         scene.add(sun, new THREE.AmbientLight(0xffffff, 0.6));
 
-        // --- 2. THE BATTLESHIP ---
+        // --- SHIP ---
         const ship = new THREE.Group();
         scene.add(ship);
         const hull = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 14), new THREE.MeshStandardMaterial({ color: 0x4a4a4a }));
@@ -66,10 +62,8 @@
         turretZPositions.forEach(z => {
             const turretPivot = new THREE.Group();
             turretPivot.position.set(0, 1.2, z);
-            
             const base = new THREE.Mesh(new THREE.BoxGeometry(2, 0.8, 2), new THREE.MeshStandardMaterial({ color: 0x333333 }));
             turretPivot.add(base);
-
             const gunPivot = new THREE.Group();
             turretPivot.add(gunPivot);
 
@@ -77,7 +71,7 @@
             for(let i = -1; i <= 1; i++) {
                 const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4), new THREE.MeshStandardMaterial({ color: 0x111111 }));
                 barrel.rotation.x = Math.PI/2;
-                barrel.position.set(i * 0.5, 0.2, 2.0); // Offset forward to muzzle tip
+                barrel.position.set(i * 0.5, 0.2, 2.0); 
                 gunPivot.add(barrel);
                 barrels.push(barrel);
             }
@@ -85,7 +79,7 @@
             turrets.push({ pivot: turretPivot, guns: gunPivot, barrels: barrels });
         });
 
-        // --- 3. ENVIRONMENT & TARGETS ---
+        // --- OCEAN & ENEMIES ---
         const ocean = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshStandardMaterial({ color: 0x003366 }));
         ocean.rotation.x = -Math.PI / 2;
         ocean.position.y = -0.5;
@@ -102,33 +96,35 @@
         }
         for(let i=0; i<15; i++) spawnEnemy();
 
-        // --- 4. FIRING SYSTEM (DEBUGGED) ---
+        // --- FIRING SYSTEM (REPAIRED) ---
         const projectiles = [];
-        const muzzleLight = new THREE.PointLight(0xffaa00, 0, 10);
+        const muzzleLight = new THREE.PointLight(0xffaa00, 0, 15);
         scene.add(muzzleLight);
 
         function fire() {
-            // Visual Flash
-            muzzleLight.intensity = 50;
-            setTimeout(() => muzzleLight.intensity = 0, 100);
+            muzzleLight.intensity = 80;
+            setTimeout(() => muzzleLight.intensity = 0, 80);
 
             turrets.forEach(t => {
                 t.barrels.forEach(barrel => {
                     const shell = new THREE.Mesh(new THREE.SphereGeometry(0.4), new THREE.MeshBasicMaterial({ color: 0xffff00 }));
                     
-                    // Force a world update to find exact muzzle coordinates
-                    barrel.updateMatrixWorld();
+                    // Update matrix to ensure correct world position
+                    barrel.updateMatrixWorld(true);
                     const muzzlePos = new THREE.Vector3();
                     barrel.getWorldPosition(muzzlePos);
                     shell.position.copy(muzzlePos);
 
-                    // Calculation: Combine ship direction + turret direction
-                    const direction = new THREE.Vector3(0, 0, 1);
-                    direction.applyQuaternion(barrel.getWorldQuaternion(new THREE.Quaternion()));
+                    // CORRECTION: Calculate direction based on the barrel's local Z-axis (forward)
+                    // We extract the forward vector from the barrel's World Matrix
+                    const vector = new THREE.Vector3(0, 0, 1); // Local "Forward"
+                    const barrelQuat = new THREE.Quaternion();
+                    barrel.getWorldQuaternion(barrelQuat);
+                    vector.applyQuaternion(barrelQuat); 
 
                     projectiles.push({ 
                         mesh: shell, 
-                        vel: direction.multiplyScalar(6.0) // Very high speed
+                        vel: vector.multiplyScalar(5.0) // Muzzle velocity
                     });
                     scene.add(shell);
                     muzzleLight.position.copy(muzzlePos);
@@ -136,7 +132,7 @@
             });
         }
 
-        // --- 5. CONTROLS ---
+        // --- CONTROLS ---
         let moveInput = { x: 0, y: 0 };
         let aimInput = { x: 0, y: 0 };
 
@@ -163,19 +159,20 @@
         fireBtn.addEventListener('touchstart', (e) => { e.preventDefault(); fire(); });
         fireBtn.addEventListener('mousedown', (e) => { e.preventDefault(); fire(); });
 
-        // --- 6. GAME LOOP ---
+        // --- GAME LOOP ---
         let score = 0; let currentSpeed = 0;
         function animate() {
             requestAnimationFrame(animate);
 
-            // Driving Logic
+            // Driving
             currentSpeed = THREE.MathUtils.lerp(currentSpeed, -moveInput.y * 0.8, 0.05);
             ship.rotation.y -= moveInput.x * 0.02 * (Math.abs(currentSpeed)/0.8);
             ship.translateZ(currentSpeed);
 
-            // Aiming Logic (Right Stick)
+            // Aiming
             turrets.forEach(t => {
                 t.pivot.rotation.y = THREE.MathUtils.lerp(t.pivot.rotation.y, -aimInput.x * Math.PI, 0.1);
+                // Aim Input Y now controls gun elevation correctly
                 t.guns.rotation.x = THREE.MathUtils.lerp(t.guns.rotation.x, aimInput.y * 0.7 - 0.2, 0.1);
             });
 
@@ -183,14 +180,14 @@
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const p = projectiles[i];
                 p.mesh.position.add(p.vel);
-                p.vel.y -= 0.04; // Heavy gravity for ballistic feel
+                p.vel.y -= 0.03; // Gravity
 
                 if (p.mesh.position.y < -1) {
                     scene.remove(p.mesh); projectiles.splice(i, 1);
                 } else {
                     enemies.forEach(en => {
-                        if (!en.sinking && p.mesh.position.distanceTo(en.group.position) < 10) {
-                            en.sinking = true; en.mesh.material.color.set(0xffaa00);
+                        if (!en.sinking && p.mesh.position.distanceTo(en.group.position) < 12) {
+                            en.sinking = true; en.mesh.material.color.set(0xff8800);
                             scene.remove(p.mesh); projectiles.splice(i, 1);
                             score++; document.getElementById('score').innerText = "Targets Sunk: " + score;
                         }
@@ -198,16 +195,15 @@
                 }
             }
 
-            // Sinking Effect
+            // Enemies
             enemies.forEach((en, idx) => {
                 if (en.sinking) {
-                    en.group.position.y -= 0.1; en.group.rotation.x += 0.05; en.timer++;
-                    if (en.timer > 50) { scene.remove(en.group); enemies.splice(idx, 1); spawnEnemy(); }
+                    en.group.position.y -= 0.1; en.group.rotation.z += 0.03; en.timer++;
+                    if (en.timer > 60) { scene.remove(en.group); enemies.splice(idx, 1); spawnEnemy(); }
                 }
             });
 
-            // Follow Camera
-            const camPos = new THREE.Vector3(0, 25, -50).applyMatrix4(ship.matrixWorld);
+            const camPos = new THREE.Vector3(0, 25, -55).applyMatrix4(ship.matrixWorld);
             camera.position.lerp(camPos, 0.1);
             camera.lookAt(ship.position);
 
@@ -215,12 +211,6 @@
             renderer.render(scene, camera);
         }
         animate();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
     </script>
 </body>
 </html>
