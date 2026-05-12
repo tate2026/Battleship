@@ -4,27 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>USS Montana: Physics Aligned</title>
+    <title>USS Montana: Advanced Naval Combat</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; touch-action: none; }
-        #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; text-shadow: 1px 1px 2px black; z-index: 100; }
-        .stick-container { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.4); z-index: 200; touch-action: none; }
-        .knob { position: absolute; width: 40px; height: 40px; background: #fff; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-        #stick-move { bottom: 40px; left: 40px; width: 100px; height: 100px; }
-        #stick-aim { bottom: 40px; right: 40px; width: 100px; height: 100px; }
+        body { margin: 0; overflow: hidden; background: #a2d2ff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: none; }
+        #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); z-index: 100; }
+        .stick-container { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5); z-index: 200; touch-action: none; backdrop-filter: blur(5px); }
+        .knob { position: absolute; width: 40px; height: 40px; background: #fff; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+        #stick-move { bottom: 40px; left: 40px; width: 110px; height: 110px; }
+        #stick-aim { bottom: 40px; right: 40px; width: 110px; height: 110px; }
         #fire-btn { 
-            position: absolute; bottom: 160px; right: 40px; width: 100px; height: 100px; 
-            border-radius: 50%; background: #ff4444; border: 4px solid #fff;
-            color: white; font-weight: bold; font-size: 18px; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; z-index: 300; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            position: absolute; bottom: 170px; right: 45px; width: 90px; height: 90px; 
+            border-radius: 50%; background: linear-gradient(#ff4d4d, #b30000); border: 3px solid #fff;
+            color: white; font-weight: bold; font-size: 16px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; z-index: 300; box-shadow: 0 8px 15px rgba(0,0,0,0.4); text-transform: uppercase;
         }
     </style>
 </head>
 <body>
     <div id="ui">
-        <div style="font-size: 22px; font-weight: bold;">USS MONTANA (BB-67)</div>
-        <div id="speed">0 KNOTS</div>
-        <div id="score">Targets Sunk: 0</div>
+        <div style="font-size: 24px; font-weight: 800; color: #ffcc00;">USS MONTANA (BB-67)</div>
+        <div id="speed">STATUS: STATIONARY</div>
+        <div id="score">TARGETS NEUTRALIZED: 0</div>
     </div>
     
     <div id="stick-move" class="stick-container"><div id="knob-move" class="knob"></div></div>
@@ -38,37 +38,71 @@
     <script type="module">
         import * as THREE from 'three';
 
+        // --- SCENE SETUP ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB); 
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
+        scene.background = new THREE.Color(0xade8f4); // Lighter sky
+        const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 10000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.toneMapping = THREE.ReinhardToneMapping;
         document.body.appendChild(renderer.domElement);
 
-        const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-        sun.position.set(50, 100, 50);
-        scene.add(sun, new THREE.AmbientLight(0xffffff, 0.6));
+        const sun = new THREE.DirectionalLight(0xffffff, 2);
+        sun.position.set(100, 200, 100);
+        scene.add(sun, new THREE.AmbientLight(0xffffff, 0.7));
 
+        // --- SHIP REALISM UPGRADE ---
         const ship = new THREE.Group();
         scene.add(ship);
-        const hull = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 14), new THREE.MeshStandardMaterial({ color: 0x4a4a4a }));
-        ship.add(hull);
+
+        const steelMat = new THREE.MeshStandardMaterial({ color: 0x4682b4, roughness: 0.7 }); // Navy Blue
+        const deckMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9 }); // Wooden Deck
+
+        // Main Hull (Sleeker Pointed Bow)
+        const hullGeo = new THREE.BoxGeometry(3.5, 2.2, 16);
+        const hullMesh = new THREE.Mesh(hullGeo, steelMat);
+        ship.add(hullMesh);
+
+        // Deck Detail
+        const deck = new THREE.Mesh(new THREE.BoxGeometry(3.3, 0.2, 15.5), deckMat);
+        deck.position.y = 1.1;
+        ship.add(deck);
+
+        // Superstructure (The Bridge/Tower)
+        const bridgeBase = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2, 4), steelMat);
+        bridgeBase.position.set(0, 2.2, -0.5);
+        ship.add(bridgeBase);
+
+        const tower = new THREE.Mesh(new THREE.BoxGeometry(1.2, 3, 1.5), steelMat);
+        tower.position.set(0, 4.5, -0.5);
+        ship.add(tower);
+
+        // Funnels (Exhaust)
+        [0.8, -1.8].forEach(z => {
+            const funnel = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 1.5), new THREE.MeshStandardMaterial({color: 0x222222}));
+            funnel.position.set(0, 3, z - 1);
+            ship.add(funnel);
+        });
 
         const turrets = [];
-        const turretZ = [5, 2.5, -2.5, -5];
-        turretZ.forEach(z => {
+        const turretZ = [5.5, 3, -3, -5.5];
+        turretZ.forEach((z, idx) => {
             const tPivot = new THREE.Group();
-            tPivot.position.set(0, 1.2, z);
-            const base = new THREE.Mesh(new THREE.BoxGeometry(2, 0.8, 2), new THREE.MeshStandardMaterial({ color: 0x333333 }));
-            tPivot.add(base);
+            tPivot.position.set(0, 1.3, z);
+            
+            // Armored Turret Box
+            const box = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1, 2.4), steelMat);
+            tPivot.add(box);
+
             const gPivot = new THREE.Group();
+            gPivot.position.y = 0.2;
             tPivot.add(gPivot);
 
             const barrels = [];
             for(let i = -1; i <= 1; i++) {
-                const b = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+                const b = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 4.5), new THREE.MeshStandardMaterial({color: 0x1a1a1a}));
                 b.rotation.x = Math.PI/2;
-                b.position.set(i * 0.5, 0.2, 2.0); 
+                b.position.set(i * 0.6, 0.1, 2.2); 
                 gPivot.add(b);
                 barrels.push(b);
             }
@@ -76,44 +110,51 @@
             turrets.push({ pivot: tPivot, guns: gPivot, barrels: barrels });
         });
 
-        const ocean = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshStandardMaterial({ color: 0x003366 }));
+        // --- LIGHTER SEA ---
+        const ocean = new THREE.Mesh(
+            new THREE.PlaneGeometry(20000, 20000), 
+            new THREE.MeshStandardMaterial({ color: 0x0077b6, roughness: 0.1, metalness: 0.2 }) 
+        );
         ocean.rotation.x = -Math.PI / 2;
         ocean.position.y = -0.5;
         scene.add(ocean);
 
+        // --- ENEMIES ---
         const enemies = [];
         function spawnEnemy() {
             const e = new THREE.Group();
-            const m = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 15), new THREE.MeshStandardMaterial({ color: 0xaa0000 }));
+            const m = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 18), new THREE.MeshStandardMaterial({ color: 0x333333 }));
             e.add(m);
-            e.position.set((Math.random()-0.5)*800, 0, (Math.random()-0.5)*800);
+            e.position.set((Math.random()-0.5)*1200, 0, (Math.random()-0.5)*1200);
             scene.add(e);
             enemies.push({ group: e, mesh: m, sinking: false, timer: 0 });
         }
-        for(let i=0; i<15; i++) spawnEnemy();
+        for(let i=0; i<20; i++) spawnEnemy();
 
+        // --- PHYSICS & FIRING ---
         const projectiles = [];
         function fire() {
             turrets.forEach(t => {
                 t.barrels.forEach(barrel => {
-                    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.45), new THREE.MeshBasicMaterial({ color: 0xffff00 }));
-                    
+                    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.5), new THREE.MeshBasicMaterial({ color: 0xffaa00 }));
                     barrel.updateMatrixWorld(true);
                     const pos = new THREE.Vector3();
                     barrel.getWorldPosition(pos);
                     shell.position.copy(pos);
 
-                    // --- CORE FIX: Calculating muzzle direction correctly ---
-                    // Since the cylinder is rotated, its local Y-axis is pointing "Forward"
+                    // Correct direction (Local Y is forward due to cylinder rotation)
                     const dir = new THREE.Vector3(0, 1, 0); 
                     dir.applyQuaternion(barrel.getWorldQuaternion(new THREE.Quaternion()));
 
-                    projectiles.push({ mesh: shell, vel: dir.multiplyScalar(6.5) });
+                    // SLOWER VELOCITY (3.5 instead of 6.5)
+                    // LOW GRAVITY (0.01 instead of 0.04) to maintain range
+                    projectiles.push({ mesh: shell, vel: dir.multiplyScalar(3.5), gravity: 0.01 });
                     scene.add(shell);
                 });
             });
         }
 
+        // --- CONTROLS ---
         let moveIn = { x: 0, y: 0 }, aimIn = { x: 0, y: 0 };
         function bindStick(id, knobId, input) {
             const el = document.getElementById(id), kn = document.getElementById(knobId);
@@ -130,52 +171,67 @@
         }
         bindStick('stick-move', 'knob-move', moveIn);
         bindStick('stick-aim', 'knob-aim', aimIn);
-        const fBtn = document.getElementById('fire-btn');
-        fBtn.addEventListener('touchstart', (e) => { e.preventDefault(); fire(); });
-        fBtn.addEventListener('mousedown', (e) => { e.preventDefault(); fire(); });
+        document.getElementById('fire-btn').addEventListener('touchstart', (e) => { e.preventDefault(); fire(); });
+        document.getElementById('fire-btn').addEventListener('mousedown', (e) => { e.preventDefault(); fire(); });
 
         let score = 0, spd = 0;
         function animate() {
             requestAnimationFrame(animate);
-            spd = THREE.MathUtils.lerp(spd, -moveIn.y * 0.8, 0.05);
-            ship.rotation.y -= moveIn.x * 0.02 * (Math.abs(spd)/0.8);
+            
+            // Propulsion
+            spd = THREE.MathUtils.lerp(spd, -moveIn.y * 0.7, 0.03);
+            ship.rotation.y -= moveIn.x * 0.015 * (Math.abs(spd)/0.7);
             ship.translateZ(spd);
 
+            // Turret Aiming
             turrets.forEach(t => {
-                t.pivot.rotation.y = THREE.MathUtils.lerp(t.pivot.rotation.y, -aimIn.x * Math.PI, 0.1);
-                t.guns.rotation.x = THREE.MathUtils.lerp(t.guns.rotation.x, aimIn.y * 0.7 - 0.2, 0.1);
+                t.pivot.rotation.y = THREE.MathUtils.lerp(t.pivot.rotation.y, -aimIn.x * Math.PI, 0.08);
+                t.guns.rotation.x = THREE.MathUtils.lerp(t.guns.rotation.x, aimIn.y * 0.7 - 0.2, 0.08);
             });
 
+            // Projectiles
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const p = projectiles[i];
                 p.mesh.position.add(p.vel);
-                p.vel.y -= 0.04; 
-                if (p.mesh.position.y < -1) { scene.remove(p.mesh); projectiles.splice(i, 1); }
-                else {
+                p.vel.y -= p.gravity; 
+                
+                if (p.mesh.position.y < -0.5) { 
+                    scene.remove(p.mesh); projectiles.splice(i, 1); 
+                } else {
                     enemies.forEach(en => {
-                        if (!en.sinking && p.mesh.position.distanceTo(en.group.position) < 12) {
-                            en.sinking = true; en.mesh.material.color.set(0xff8800);
+                        if (!en.sinking && p.mesh.position.distanceTo(en.group.position) < 15) {
+                            en.sinking = true; 
+                            score++; document.getElementById('score').innerText = "TARGETS NEUTRALIZED: " + score;
                             scene.remove(p.mesh); projectiles.splice(i, 1);
-                            score++; document.getElementById('score').innerText = "Targets Sunk: " + score;
                         }
                     });
                 }
             }
 
+            // Sinking Animation
             enemies.forEach((en, idx) => {
                 if (en.sinking) {
-                    en.group.position.y -= 0.1; en.group.rotation.z += 0.03; en.timer++;
-                    if (en.timer > 60) { scene.remove(en.group); enemies.splice(idx, 1); spawnEnemy(); }
+                    en.group.position.y -= 0.05; en.group.rotation.x += 0.02; en.timer++;
+                    if (en.timer > 100) { scene.remove(en.group); enemies.splice(idx, 1); spawnEnemy(); }
                 }
             });
 
-            const camPos = new THREE.Vector3(0, 25, -55).applyMatrix4(ship.matrixWorld);
+            // Camera Tracking
+            const camPos = new THREE.Vector3(0, 30, -65).applyMatrix4(ship.matrixWorld);
             camera.position.lerp(camPos, 0.1);
             camera.lookAt(ship.position);
-            document.getElementById('speed').innerText = Math.abs(Math.floor(spd * 100)) + " KNOTS";
+
+            const knots = Math.abs(Math.floor(spd * 50));
+            document.getElementById('speed').innerText = knots > 0 ? `STATUS: ${knots} KNOTS` : "STATUS: STATIONARY";
             renderer.render(scene, camera);
         }
         animate();
+
+        window.onresize = () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        };
     </script>
 </body>
 </html>
