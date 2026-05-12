@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>USS Montana: Precision Strike</title>
+    <title>USS Montana: Heavy Ordnance</title>
     <style>
         body { margin: 0; overflow: hidden; background: #64b5f6; font-family: 'Segoe UI', sans-serif; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); z-index: 100; }
@@ -39,7 +39,7 @@
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x81d4fa);
-        scene.fog = new THREE.Fog(0x81d4fa, 2000, 7000); 
+        scene.fog = new THREE.Fog(0x81d4fa, 2000, 7500); 
         
         const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 25000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -69,7 +69,7 @@
             return { group, mat };
         }
 
-        // --- PLAYER SHIP: 120 UNITS LONG ---
+        // --- PLAYER SHIP: 120 UNITS ---
         const { group: ship } = createShipMesh(13, 5, 120, 0x455a64);
         scene.add(ship);
         
@@ -136,9 +136,11 @@
                     projectiles.push({ mesh: shell, vel: dir.multiplyScalar(8.0), gravity: 0.022 });
                     scene.add(shell);
                     
-                    // SCALED DOWN Muzzle Flash & Smoke (Smaller, faster decay)
-                    spawnFX(pos, 0xffbb00, 1.2, new THREE.Vector3(0, 0.1, 0), 0.15, 1.1); // Small sharp flash
-                    spawnFX(pos, 0x555555, 0.8, new THREE.Vector3(0, 0.05, 0), 0.05, 1.05); // Compact smoke
+                    // SLIGHTLY LARGER MUZZLE EFFECTS
+                    // Initial flash is larger and grows fast
+                    spawnFX(pos, 0xffcc33, 2.5, new THREE.Vector3(0, 0.15, 0), 0.12, 1.3); 
+                    // Smoke is bigger and lingers a bit more
+                    spawnFX(pos, 0x666666, 1.8, new THREE.Vector3(0, 0.08, 0), 0.04, 1.15); 
                 });
             });
         }
@@ -171,7 +173,6 @@
             ship.rotation.y -= moveIn.x * 0.003 * (Math.abs(spd)+0.1);
             ship.translateZ(spd);
 
-            // Particle Physics
             for(let i=particles.length-1; i>=0; i--) {
                 const p = particles[i]; 
                 p.mesh.position.add(p.vel); 
@@ -181,17 +182,15 @@
                 if(p.life <= 0) { scene.remove(p.mesh); particles.splice(i,1); }
             }
 
-            // Aiming
             turrets.forEach(t => {
                 t.pivot.rotation.y = THREE.MathUtils.lerp(t.pivot.rotation.y, -aimIn.x * Math.PI, 0.04);
                 t.guns.rotation.x = THREE.MathUtils.lerp(t.guns.rotation.x, aimIn.y * 0.7 - 0.2, 0.04);
             });
 
-            // Shells
             for(let i=projectiles.length-1; i>=0; i--) {
                 const p = projectiles[i]; p.mesh.position.add(p.vel); p.vel.y -= p.gravity;
                 if(p.mesh.position.y < 0) {
-                    spawnFX(p.mesh.position, 0xffffff, 4, new THREE.Vector3(0,0.4,0), 0.05); // Splash
+                    spawnFX(p.mesh.position, 0xffffff, 4, new THREE.Vector3(0,0.4,0), 0.05); 
                     scene.remove(p.mesh); projectiles.splice(i,1);
                 } else {
                     enemies.forEach(en => {
@@ -199,21 +198,19 @@
                             en.sinking = true; score++;
                             document.getElementById('score').innerText = `ENEMIES NEUTRALIZED: ${score}`;
                             scene.remove(p.mesh); projectiles.splice(i,1);
-                            // Dramatic Explosion on Hit
                             for(let j=0; j<8; j++) {
-                                spawnFX(en.group.position, 0xff4500, 4, new THREE.Vector3((Math.random()-0.5)*3, 1.5, (Math.random()-0.5)*3), 0.02, 1.05);
+                                spawnFX(en.group.position, 0xff4500, 5, new THREE.Vector3((Math.random()-0.5)*3, 1.5, (Math.random()-0.5)*3), 0.02, 1.06);
                             }
                         }
                     });
                 }
             }
 
-            // Sinking & Fire Effects
             enemies.forEach((en, idx) => {
                 if(en.sinking) {
                     en.group.position.y -= 0.08; en.group.rotation.x += 0.003; en.timer++;
                     if(Math.random() > 0.8) {
-                        spawnFX(en.group.position, 0xff2200, 2, new THREE.Vector3(0, 1, 0), 0.03, 1.1);
+                        spawnFX(en.group.position, 0xff2200, 2.5, new THREE.Vector3(0, 1.2, 0), 0.03, 1.1);
                     }
                     if(en.timer > 250) { scene.remove(en.group); enemies.splice(idx,1); enemies.push(createEnemy()); }
                 }
