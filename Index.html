@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>USS Montana: Custom Deck Contour</title>
+    <title>USS Montana: Enhanced Handling</title>
     <style>
         body { margin: 0; overflow: hidden; background: #01579b; font-family: 'Segoe UI', sans-serif; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); z-index: 100; }
@@ -52,7 +52,6 @@
 
         function createSectionedShip(maxW, h, totalL, hullCol, deckCol, isPlayer = false) {
             const group = new THREE.Group();
-            
             const sections = [
                 { z: totalL/2,  w: 0.1 },   
                 { z: totalL/4,  w: maxW },  
@@ -61,7 +60,6 @@
                 { z: -totalL/2, w: maxW * 0.4 }  
             ];
 
-            // 1. Create Hull Geometry
             const hullShape = new THREE.Shape();
             hullShape.moveTo(0, sections[0].z);
             sections.forEach(s => hullShape.lineTo(s.w/2, s.z));
@@ -74,9 +72,8 @@
             hull.position.y = h/2;
             group.add(hull);
 
-            // 2. Create Deck Geometry (Follows the same points, slightly inset)
             const deckShape = new THREE.Shape();
-            const inset = 0.5; // Slightly inside the hull line
+            const inset = 0.5; 
             deckShape.moveTo(0, sections[0].z - inset);
             sections.forEach(s => deckShape.lineTo((s.w/2) - inset, s.z));
             sections.slice().reverse().forEach(s => deckShape.lineTo(-(s.w/2) + inset, s.z));
@@ -85,7 +82,7 @@
             const deckGeom = new THREE.ShapeGeometry(deckShape);
             const deck = new THREE.Mesh(deckGeom, new THREE.MeshStandardMaterial({ color: deckCol }));
             deck.rotation.x = -Math.PI/2;
-            deck.position.y = h + 0.15; // Sits on top of the hull
+            deck.position.y = h + 0.15; 
             group.add(deck);
 
             if(isPlayer) {
@@ -176,12 +173,14 @@
         document.getElementById('fire-btn').addEventListener('pointerdown', fire);
 
         let speed = 0, score = 0;
-        const MAX_SPEED = 1.7, ACCEL = 0.0015;
+        const MAX_SPEED = 1.7;
+        const ACCEL = 0.0018; // Increased by 1.2x (from 0.0015)
+        const TURN_SPEED = 0.0018; // Increased by 1.2x (from 0.0015)
 
         function update() {
             requestAnimationFrame(update);
             speed = THREE.MathUtils.lerp(speed, -mv.y * MAX_SPEED, ACCEL);
-            ship.rotation.y -= mv.x * 0.0015 * (Math.abs(speed/MAX_SPEED) + 0.05);
+            ship.rotation.y -= mv.x * TURN_SPEED * (Math.abs(speed/MAX_SPEED) + 0.1);
             ship.translateZ(speed);
 
             if (Math.abs(speed) > 0.1) {
@@ -220,7 +219,10 @@
                 t.pivot.rotation.x = THREE.MathUtils.lerp(t.pivot.rotation.x, am.y * 0.6 - 0.1, 0.04);
             });
 
-            camera.position.lerp(new THREE.Vector3(0, 480, -900).applyMatrix4(ship.matrixWorld), 0.04);
+            // CAMERA DELAY / SLOW VIEW LOGIC
+            // Using a lower lerp value (0.015 instead of 0.04) makes the camera lag behind the turn
+            const camOffset = new THREE.Vector3(0, 480, -900).applyMatrix4(ship.matrixWorld);
+            camera.position.lerp(camOffset, 0.015); 
             camera.lookAt(ship.position);
 
             enemies.forEach((en, idx) => {
