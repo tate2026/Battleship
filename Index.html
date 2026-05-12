@@ -4,36 +4,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Montana Strike: Debugged</title>
+    <title>USS Montana: Final Debug</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; text-shadow: 1px 1px 2px black; z-index: 100; }
         
-        .ctrl-base { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.4); z-index: 200; touch-action: none; }
-        .knob { position: absolute; width: 40px; height: 40px; background: white; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%); top: 50%; left: 50%; }
+        /* Controls */
+        .stick-container { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); z-index: 200; }
+        .knob { position: absolute; width: 40px; height: 40px; background: #fff; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
         
-        #stick-move { bottom: 30px; left: 30px; width: 100px; height: 100px; }
-        #stick-aim { bottom: 30px; right: 30px; width: 100px; height: 100px; }
+        #stick-move { bottom: 40px; left: 40px; width: 100px; height: 100px; }
+        #stick-aim { bottom: 40px; right: 40px; width: 100px; height: 100px; }
         
         #fire-btn { 
-            position: absolute; bottom: 150px; right: 30px; width: 100px; height: 100px; 
-            border-radius: 50%; background: #ff4444; border: 4px solid white;
-            color: white; font-weight: bold; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; z-index: 300; pointer-events: auto;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            -webkit-tap-highlight-color: transparent;
+            position: absolute; bottom: 160px; right: 40px; width: 100px; height: 100px; 
+            border-radius: 50%; background: radial-gradient(#ff6666, #cc0000); border: 4px solid #fff;
+            color: white; font-weight: bold; font-size: 18px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; z-index: 300; -webkit-tap-highlight-color: transparent; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
         }
     </style>
 </head>
 <body>
     <div id="ui">
-        <div style="font-size: 18px; font-weight: bold;">USS MONTANA (BB-67)</div>
+        <div style="font-size: 22px; letter-spacing: 2px;">USS MONTANA (BB-67)</div>
         <div id="speed">0 KNOTS</div>
         <div id="score">Targets Sunk: 0</div>
     </div>
     
-    <div id="stick-move" class="ctrl-base"><div id="knob-move" class="knob"></div></div>
-    <div id="stick-aim" class="ctrl-base"><div id="knob-aim" class="knob"></div></div>
+    <div id="stick-move" class="stick-container"><div id="knob-move" class="knob"></div></div>
+    <div id="stick-aim" class="stick-container"><div id="knob-aim" class="knob"></div></div>
     <div id="fire-btn">FIRE</div>
 
     <script type="importmap">
@@ -43,48 +42,50 @@
     <script type="module">
         import * as THREE from 'three';
 
-        // --- ENGINE ---
+        // --- 1. ENGINE SETUP ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87CEEB); 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
 
         const sun = new THREE.DirectionalLight(0xffffff, 1.5);
         sun.position.set(50, 100, 50);
         scene.add(sun, new THREE.AmbientLight(0xffffff, 0.6));
 
-        // --- SHIP ---
-        const shipGroup = new THREE.Group();
-        scene.add(shipGroup);
-        const hull = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 14), new THREE.MeshStandardMaterial({ color: 0x5a5a5a }));
-        shipGroup.add(hull);
+        // --- 2. THE BATTLESHIP ---
+        const ship = new THREE.Group();
+        scene.add(ship);
+        const hull = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 14), new THREE.MeshStandardMaterial({ color: 0x4a4a4a }));
+        ship.add(hull);
 
         const turrets = [];
-        const turretZ = [5, 2.5, -2.5, -5];
-        turretZ.forEach(z => {
-            const tPivot = new THREE.Group();
-            tPivot.position.set(0, 1.2, z);
-            const base = new THREE.Mesh(new THREE.BoxGeometry(2, 0.7, 2), new THREE.MeshStandardMaterial({ color: 0x444444 }));
-            tPivot.add(base);
-            const gPivot = new THREE.Group();
-            tPivot.add(gPivot);
+        const turretZPositions = [5, 2.5, -2.5, -5];
+        turretZPositions.forEach(z => {
+            const turretPivot = new THREE.Group();
+            turretPivot.position.set(0, 1.2, z);
+            
+            const base = new THREE.Mesh(new THREE.BoxGeometry(2, 0.8, 2), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+            turretPivot.add(base);
+
+            const gunPivot = new THREE.Group();
+            turretPivot.add(gunPivot);
 
             const barrels = [];
-            for(let i=-1; i<=1; i++) {
-                const g = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4), new THREE.MeshStandardMaterial({ color: 0x222222 }));
-                g.rotation.x = Math.PI/2;
-                g.position.set(i*0.5, 0.2, 1.8); 
-                gPivot.add(g);
-                barrels.push(g);
+            for(let i = -1; i <= 1; i++) {
+                const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+                barrel.rotation.x = Math.PI/2;
+                barrel.position.set(i * 0.5, 0.2, 2.0); // Offset forward to muzzle tip
+                gunPivot.add(barrel);
+                barrels.push(barrel);
             }
-            shipGroup.add(tPivot);
-            turrets.push({ pivot: tPivot, guns: gPivot, barrels: barrels });
+            ship.add(turretPivot);
+            turrets.push({ pivot: turretPivot, guns: gunPivot, barrels: barrels });
         });
 
-        // --- OCEAN ---
+        // --- 3. ENVIRONMENT & TARGETS ---
         const ocean = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshStandardMaterial({ color: 0x003366 }));
         ocean.rotation.x = -Math.PI / 2;
         ocean.position.y = -0.5;
@@ -93,93 +94,96 @@
         const enemies = [];
         function spawnEnemy() {
             const eGroup = new THREE.Group();
-            const eMesh = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 15), new THREE.MeshStandardMaterial({ color: 0x880000 }));
+            const eMesh = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 15), new THREE.MeshStandardMaterial({ color: 0xaa0000 }));
             eGroup.add(eMesh);
-            eGroup.position.set((Math.random()-0.5)*600, 0, (Math.random()-0.5)*600);
+            eGroup.position.set((Math.random()-0.5)*800, 0, (Math.random()-0.5)*800);
             scene.add(eGroup);
             enemies.push({ group: eGroup, mesh: eMesh, sinking: false, timer: 0 });
         }
-        for(let i=0; i<12; i++) spawnEnemy();
+        for(let i=0; i<15; i++) spawnEnemy();
 
-        // --- PROJECTILE LOGIC (DEBUGGED) ---
+        // --- 4. FIRING SYSTEM (DEBUGGED) ---
         const projectiles = [];
+        const muzzleLight = new THREE.PointLight(0xffaa00, 0, 10);
+        scene.add(muzzleLight);
+
         function fire() {
-            // Force visual update before calculating world positions
-            renderer.render(scene, camera); 
-            scene.updateMatrixWorld(true);
+            // Visual Flash
+            muzzleLight.intensity = 50;
+            setTimeout(() => muzzleLight.intensity = 0, 100);
 
             turrets.forEach(t => {
                 t.barrels.forEach(barrel => {
-                    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.4), new THREE.MeshBasicMaterial({ color: 0xffdd00 }));
+                    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.4), new THREE.MeshBasicMaterial({ color: 0xffff00 }));
                     
-                    const worldPos = new THREE.Vector3();
-                    barrel.getWorldPosition(worldPos);
-                    shell.position.copy(worldPos);
+                    // Force a world update to find exact muzzle coordinates
+                    barrel.updateMatrixWorld();
+                    const muzzlePos = new THREE.Vector3();
+                    barrel.getWorldPosition(muzzlePos);
+                    shell.position.copy(muzzlePos);
 
-                    // Robust Direction Calculation
-                    const worldQuat = new THREE.Quaternion();
-                    barrel.getWorldQuaternion(worldQuat);
-                    const forceDir = new THREE.Vector3(0, 0, 1).applyQuaternion(worldQuat);
+                    // Calculation: Combine ship direction + turret direction
+                    const direction = new THREE.Vector3(0, 0, 1);
+                    direction.applyQuaternion(barrel.getWorldQuaternion(new THREE.Quaternion()));
 
                     projectiles.push({ 
                         mesh: shell, 
-                        vel: forceDir.multiplyScalar(5.5) // High speed
+                        vel: direction.multiplyScalar(6.0) // Very high speed
                     });
                     scene.add(shell);
+                    muzzleLight.position.copy(muzzlePos);
                 });
             });
         }
 
-        // --- INPUTS ---
-        let moveIn = { x: 0, y: 0 };
-        let aimIn = { x: 0, y: 0 };
+        // --- 5. CONTROLS ---
+        let moveInput = { x: 0, y: 0 };
+        let aimInput = { x: 0, y: 0 };
 
-        function bindStick(id, knobId, input) {
-            const area = document.getElementById(id);
+        function setupJoystick(id, knobId, inputObj) {
+            const el = document.getElementById(id);
             const knob = document.getElementById(knobId);
             const move = (e) => {
                 e.preventDefault();
                 const touch = e.touches ? e.touches[0] : e;
-                const r = area.getBoundingClientRect();
-                input.x = (touch.clientX - (r.left + r.width/2)) / (r.width/2);
-                input.y = (touch.clientY - (r.top + r.height/2)) / (r.width/2);
-                knob.style.left = (50 + Math.max(-1, Math.min(1, input.x)) * 40) + '%';
-                knob.style.top = (50 + Math.max(-1, Math.min(1, input.y)) * 40) + '%';
+                const r = el.getBoundingClientRect();
+                inputObj.x = (touch.clientX - (r.left + r.width/2)) / (r.width/2);
+                inputObj.y = (touch.clientY - (r.top + r.height/2)) / (r.height/2);
+                knob.style.left = (50 + Math.max(-1, Math.min(1, inputObj.x)) * 40) + '%';
+                knob.style.top = (50 + Math.max(-1, Math.min(1, inputObj.y)) * 40) + '%';
             };
-            const end = () => { input.x = 0; input.y = 0; knob.style.left = '50%'; knob.style.top = '50%'; };
-            area.addEventListener('touchstart', move);
-            area.addEventListener('touchmove', move);
-            area.addEventListener('touchend', end);
-            area.addEventListener('mousedown', () => { window.onmousemove = move; window.onmouseup = () => { window.onmousemove = null; end(); }; });
+            const stop = () => { inputObj.x = 0; inputObj.y = 0; knob.style.left = '50%'; knob.style.top = '50%'; };
+            el.addEventListener('touchstart', move); el.addEventListener('touchmove', move); el.addEventListener('touchend', stop);
+            el.addEventListener('mousedown', () => { window.onmousemove = move; window.onmouseup = () => { window.onmousemove = null; stop(); }; });
         }
-        bindStick('stick-move', 'knob-move', moveIn);
-        bindStick('stick-aim', 'knob-aim', aimIn);
+        setupJoystick('stick-move', 'knob-move', moveInput);
+        setupJoystick('stick-aim', 'knob-aim', aimInput);
 
-        const fBtn = document.getElementById('fire-btn');
-        fBtn.addEventListener('touchstart', (e) => { e.preventDefault(); fire(); });
-        fBtn.addEventListener('mousedown', (e) => { e.preventDefault(); fire(); });
+        const fireBtn = document.getElementById('fire-btn');
+        fireBtn.addEventListener('touchstart', (e) => { e.preventDefault(); fire(); });
+        fireBtn.addEventListener('mousedown', (e) => { e.preventDefault(); fire(); });
 
-        // --- GAME LOOP ---
-        let score = 0; let speed = 0;
+        // --- 6. GAME LOOP ---
+        let score = 0; let currentSpeed = 0;
         function animate() {
             requestAnimationFrame(animate);
 
-            // Driving
-            speed = THREE.MathUtils.lerp(speed, -moveIn.y * 0.7, 0.03);
-            shipGroup.rotation.y -= moveIn.x * 0.02 * (Math.abs(speed)/0.7);
-            shipGroup.translateZ(speed);
+            // Driving Logic
+            currentSpeed = THREE.MathUtils.lerp(currentSpeed, -moveInput.y * 0.8, 0.05);
+            ship.rotation.y -= moveInput.x * 0.02 * (Math.abs(currentSpeed)/0.8);
+            ship.translateZ(currentSpeed);
 
-            // Turrets
+            // Aiming Logic (Right Stick)
             turrets.forEach(t => {
-                t.pivot.rotation.y = THREE.MathUtils.lerp(t.pivot.rotation.y, -aimIn.x * Math.PI, 0.1);
-                t.guns.rotation.x = THREE.MathUtils.lerp(t.guns.rotation.x, aimIn.y * 0.8 - 0.2, 0.1);
+                t.pivot.rotation.y = THREE.MathUtils.lerp(t.pivot.rotation.y, -aimInput.x * Math.PI, 0.1);
+                t.guns.rotation.x = THREE.MathUtils.lerp(t.guns.rotation.x, aimInput.y * 0.7 - 0.2, 0.1);
             });
 
-            // Projectile Physics
+            // Shell Physics
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const p = projectiles[i];
                 p.mesh.position.add(p.vel);
-                p.vel.y -= 0.035; // Gravity
+                p.vel.y -= 0.04; // Heavy gravity for ballistic feel
 
                 if (p.mesh.position.y < -1) {
                     scene.remove(p.mesh); projectiles.splice(i, 1);
@@ -194,23 +198,29 @@
                 }
             }
 
-            // Sinking
+            // Sinking Effect
             enemies.forEach((en, idx) => {
                 if (en.sinking) {
-                    en.group.position.y -= 0.08; en.group.rotation.x += 0.04; en.timer++;
-                    if (en.timer > 60) { scene.remove(en.group); enemies.splice(idx, 1); spawnEnemy(); }
+                    en.group.position.y -= 0.1; en.group.rotation.x += 0.05; en.timer++;
+                    if (en.timer > 50) { scene.remove(en.group); enemies.splice(idx, 1); spawnEnemy(); }
                 }
             });
 
-            const camPos = new THREE.Vector3(0, 20, -45).applyMatrix4(shipGroup.matrixWorld);
+            // Follow Camera
+            const camPos = new THREE.Vector3(0, 25, -50).applyMatrix4(ship.matrixWorld);
             camera.position.lerp(camPos, 0.1);
-            camera.lookAt(shipGroup.position);
+            camera.lookAt(ship.position);
 
-            document.getElementById('speed').innerText = Math.abs(Math.floor(speed * 100)) + " KNOTS";
+            document.getElementById('speed').innerText = Math.abs(Math.floor(currentSpeed * 100)) + " KNOTS";
             renderer.render(scene, camera);
         }
         animate();
-        window.onresize = () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); };
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
