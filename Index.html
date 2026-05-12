@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>USS Montana: Dreadnought Scale</title>
+    <title>USS Montana: Ultimate Polish</title>
     <style>
         body { margin: 0; overflow: hidden; background: #ade8f4; font-family: 'Segoe UI', sans-serif; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); z-index: 100; }
@@ -24,7 +23,7 @@
     <div id="ui">
         <div style="font-size: 24px; font-weight: 800; color: #ffcc00;">USS MONTANA (BB-67)</div>
         <div id="speed">STATUS: STATIONARY</div>
-        <div id="score">ENEMY FLEET SUNK: 0</div>
+        <div id="score">FLEET CASUALTIES: 0</div>
     </div>
     
     <div id="stick-move" class="stick-container"><div id="knob-move" class="knob"></div></div>
@@ -39,7 +38,7 @@
         import * as THREE from 'three';
 
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xade8f4); 
+        scene.background = new THREE.Color(0x87ceeb);
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -47,60 +46,46 @@
 
         const sun = new THREE.DirectionalLight(0xffffff, 2);
         sun.position.set(100, 200, 100);
-        scene.add(sun, new THREE.AmbientLight(0xffffff, 0.8));
+        scene.add(sun, new THREE.AmbientLight(0xffffff, 0.6));
 
-        // --- PLAYER GIGANTIC BATTLESHIP ---
+        // --- SHIP MATERIALS ---
+        const steelMat = new THREE.MeshStandardMaterial({ color: 0x5a6e83 });
+        const darkMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+
+        // --- PLAYER SHIP ---
         const ship = new THREE.Group();
         scene.add(ship);
-
-        const steelMat = new THREE.MeshStandardMaterial({ color: 0x5a6e83, roughness: 0.6 }); 
-        const darkSteel = new THREE.MeshStandardMaterial({ color: 0x333333 });
-
-        // Elongated Hull (24 units long for "Gigantic" feel)
-        const hull = new THREE.Mesh(new THREE.BoxGeometry(4, 2.5, 24), steelMat);
+        const hull = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 24), steelMat);
         ship.add(hull);
 
-        // Tiered Superstructure (The Bridge)
-        const bridgeTier1 = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.5, 6), steelMat);
-        bridgeTier1.position.set(0, 2, -1);
-        ship.add(bridgeTier1);
+        const bridge = new THREE.Mesh(new THREE.BoxGeometry(2.5, 4, 5), steelMat);
+        bridge.position.set(0, 3, -1);
+        ship.add(bridge);
 
-        const bridgeTier2 = new THREE.Mesh(new THREE.BoxGeometry(1.8, 2.5, 2.5), steelMat);
-        bridgeTier2.position.set(0, 3.5, -0.5);
-        ship.add(bridgeTier2);
-
-        // Radar Mast
-        const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 4), darkSteel);
-        mast.position.set(0, 6, -0.5);
-        ship.add(mast);
-
-        // AA-Guns (Small decorative cubes along the side)
+        // AA Guns (Secondary Battery)
+        const secondaries = [];
         for(let i = -1; i <= 1; i += 2) {
-            for(let j = -6; j <= 2; j += 2) {
-                const aa = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.8), darkSteel);
-                aa.position.set(i * 1.8, 1.3, j);
-                ship.add(aa);
+            for(let j = -4; j <= 4; j += 3) {
+                const aaBox = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.4, 0.6), darkMat);
+                aaBox.position.set(i * 2, 1.6, j);
+                ship.add(aaBox);
+                secondaries.push(aaBox);
             }
         }
 
         const turrets = [];
-        // Triple turrets placed along the long deck
-        const turretZ = [9, 6, -6, -9];
-        turretZ.forEach((z, idx) => {
+        [9, 5, -6, -10].forEach(z => {
             const tPivot = new THREE.Group();
-            tPivot.position.set(0, 1.5, z);
-            
-            const box = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.2, 3), steelMat);
+            tPivot.position.set(0, 1.8, z);
+            const box = new THREE.Mesh(new THREE.BoxGeometry(3, 1.2, 3.5), steelMat);
             tPivot.add(box);
-            
             const gPivot = new THREE.Group();
             tPivot.add(gPivot);
-
             const barrels = [];
             for(let i = -1; i <= 1; i++) {
-                const b = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.18, 5.5), new THREE.MeshStandardMaterial({color: 0x111111}));
+                const b = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.2, 6), darkMat);
                 b.rotation.x = Math.PI/2;
-                b.position.set(i * 0.7, 0.3, 2.8); 
+                b.position.set(i * 0.8, 0.3, 3);
                 gPivot.add(b);
                 barrels.push(b);
             }
@@ -108,50 +93,55 @@
             turrets.push({ pivot: tPivot, guns: gPivot, barrels: barrels });
         });
 
-        // --- IMPROVED ENEMIES ---
-        const enemyHullMat = new THREE.MeshStandardMaterial({ color: 0x2b2b2b });
-        const enemyWaterlineMat = new THREE.MeshStandardMaterial({ color: 0x880000 });
-        function createEnemyShip() {
-            const eGroup = new THREE.Group();
-            const eHull = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 14), enemyHullMat);
-            eGroup.add(eHull);
-            const waterline = new THREE.Mesh(new THREE.BoxGeometry(6.1, 0.5, 14.1), enemyWaterlineMat);
-            waterline.position.y = -1.3;
-            eGroup.add(waterline);
-            const bridge = new THREE.Mesh(new THREE.BoxGeometry(3, 2.5, 4), enemyHullMat);
-            bridge.position.set(0, 2.5, 0);
-            eGroup.add(bridge);
-            eGroup.position.set((Math.random()-0.5)*1500, 0.5, (Math.random()-0.5)*1500);
-            scene.add(eGroup);
-            return { group: eGroup, sinking: false, timer: 0 };
-        }
-        const enemies = [];
-        for(let i=0; i<15; i++) enemies.push(createEnemyShip());
-
-        // --- OCEAN ---
-        const ocean = new THREE.Mesh(new THREE.PlaneGeometry(20000, 20000), new THREE.MeshStandardMaterial({ color: 0x0077b6, roughness: 0.2 }));
+        // --- ENVIRONMENT ---
+        const ocean = new THREE.Mesh(new THREE.PlaneGeometry(20000, 20000), new THREE.MeshStandardMaterial({ color: 0x006994, roughness: 0.1 }));
         ocean.rotation.x = -Math.PI / 2;
-        ocean.position.y = -0.5;
         scene.add(ocean);
 
-        // --- PROJECTILES ---
+        // --- PARTICLES (Smoke & Splashes) ---
+        const particles = [];
+        function createParticle(pos, color, size, vel) {
+            const p = new THREE.Mesh(new THREE.SphereGeometry(size), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.8 }));
+            p.position.copy(pos);
+            scene.add(p);
+            particles.push({ mesh: p, vel: vel, life: 1.0 });
+        }
+
+        // --- ENEMIES ---
+        const enemies = [];
+        function spawnEnemy() {
+            const e = new THREE.Group();
+            const m = new THREE.Mesh(new THREE.BoxGeometry(7, 3, 15), darkMat);
+            e.add(m);
+            const wl = new THREE.Mesh(new THREE.BoxGeometry(7.1, 0.6, 15.1), new THREE.MeshBasicMaterial({color: 0xaa0000}));
+            wl.position.y = -1.2;
+            e.add(wl);
+            e.position.set((Math.random()-0.5)*1800, 0.5, (Math.random()-0.5)*1800);
+            scene.add(e);
+            enemies.push({ group: e, sinking: false, timer: 0 });
+        }
+        for(let i=0; i<12; i++) spawnEnemy();
+
+        // --- FIRING ---
         const projectiles = [];
         function fire() {
             turrets.forEach(t => {
                 t.barrels.forEach(barrel => {
-                    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.6), new THREE.MeshBasicMaterial({ color: 0xffcc00 }));
+                    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.6), new THREE.MeshBasicMaterial({ color: 0xffaa00 }));
                     barrel.updateMatrixWorld(true);
                     const pos = new THREE.Vector3();
                     barrel.getWorldPosition(pos);
                     shell.position.copy(pos);
-                    const dir = new THREE.Vector3(0, 1, 0); 
-                    dir.applyQuaternion(barrel.getWorldQuaternion(new THREE.Quaternion()));
-                    projectiles.push({ mesh: shell, vel: dir.multiplyScalar(4.2), gravity: 0.015 });
+                    const dir = new THREE.Vector3(0, 1, 0).applyQuaternion(barrel.getWorldQuaternion(new THREE.Quaternion()));
+                    projectiles.push({ mesh: shell, vel: dir.multiplyScalar(4.5), gravity: 0.018, isMain: true });
                     scene.add(shell);
+                    // Muzzle Smoke
+                    createParticle(pos, 0xeeeeee, 0.8, new THREE.Vector3(0, 0.1, 0));
                 });
             });
         }
 
+        // --- CONTROLS ---
         let moveIn = { x: 0, y: 0 }, aimIn = { x: 0, y: 0 };
         function bindStick(id, knobId, input) {
             const el = document.getElementById(id), kn = document.getElementById(knobId);
@@ -163,56 +153,79 @@
                 kn.style.top = (50 + Math.max(-1, Math.min(1, input.y)) * 40) + '%';
             };
             const stop = () => { input.x = 0; input.y = 0; kn.style.left='50%'; kn.style.top='50%'; };
-            el.addEventListener('touchstart', fn); el.addEventListener('touchmove', fn); el.addEventListener('touchend', stop);
-            el.addEventListener('mousedown', () => { window.onmousemove = fn; window.onmouseup = () => { window.onmousemove = null; stop(); }; });
+            el.addEventListener('pointerdown', fn); el.addEventListener('pointermove', (e) => { if(e.buttons) fn(e); });
+            el.addEventListener('pointerup', stop);
         }
         bindStick('stick-move', 'knob-move', moveIn);
         bindStick('stick-aim', 'knob-aim', aimIn);
-        document.getElementById('fire-btn').addEventListener('pointerdown', (e) => { e.preventDefault(); fire(); });
+        document.getElementById('fire-btn').addEventListener('pointerdown', fire);
 
-        let score = 0, spd = 0;
+        let score = 0, spd = 0, frame = 0;
         function animate() {
             requestAnimationFrame(animate);
-            // Heavier physics for a bigger ship
-            spd = THREE.MathUtils.lerp(spd, -moveIn.y * 0.9, 0.02);
-            ship.rotation.y -= moveIn.x * 0.01 * (Math.abs(spd)/0.9);
+            frame++;
+
+            // Ship Movement
+            spd = THREE.MathUtils.lerp(spd, -moveIn.y * 1.0, 0.02);
+            ship.rotation.y -= moveIn.x * 0.01 * (Math.abs(spd)/1.0);
             ship.translateZ(spd);
 
+            // Smoke Trails from funnels
+            if(frame % 10 === 0) {
+                const smokePos = new THREE.Vector3(0, 5, -2).applyMatrix4(ship.matrixWorld);
+                createParticle(smokePos, 0x333333, 0.5, new THREE.Vector3(0, 0.1, 0));
+            }
+
+            // Turret & AA Logic
             turrets.forEach(t => {
                 t.pivot.rotation.y = THREE.MathUtils.lerp(t.pivot.rotation.y, -aimIn.x * Math.PI, 0.07);
                 t.guns.rotation.x = THREE.MathUtils.lerp(t.guns.rotation.x, aimIn.y * 0.7 - 0.2, 0.07);
             });
 
+            // Shell Physics & Collisions
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const p = projectiles[i];
                 p.mesh.position.add(p.vel);
                 p.vel.y -= p.gravity;
-                if (p.mesh.position.y < -0.5) { scene.remove(p.mesh); projectiles.splice(i, 1); }
-                else {
+
+                if (p.mesh.position.y < -0.2) {
+                    createParticle(p.mesh.position, 0xffffff, 0.4, new THREE.Vector3(0, 0.2, 0)); // Splash
+                    scene.remove(p.mesh); projectiles.splice(i, 1);
+                } else {
                     enemies.forEach(en => {
-                        if (!en.sinking && p.mesh.position.distanceTo(en.group.position) < 16) {
+                        if (!en.sinking && p.mesh.position.distanceTo(en.group.position) < 15) {
                             en.sinking = true; score++;
-                            document.getElementById('score').innerText = "ENEMY FLEET SUNK: " + score;
+                            document.getElementById('score').innerText = "FLEET CASUALTIES: " + score;
                             scene.remove(p.mesh); projectiles.splice(i, 1);
                         }
                     });
                 }
             }
 
+            // Particle Lifecycle
+            for(let i = particles.length -1; i >= 0; i--) {
+                const p = particles[i];
+                p.mesh.position.add(p.vel);
+                p.life -= 0.02;
+                p.mesh.material.opacity = p.life;
+                p.mesh.scale.setScalar(1 + (1-p.life)*2);
+                if(p.life <= 0) { scene.remove(p.mesh); particles.splice(i, 1); }
+            }
+
+            // Sinking Enemies
             enemies.forEach((en, idx) => {
                 if (en.sinking) {
-                    en.group.position.y -= 0.06;
-                    en.group.rotation.z += 0.015;
-                    en.timer++;
-                    if (en.timer > 120) { scene.remove(en.group); enemies.splice(idx, 1); enemies.push(createEnemyShip()); }
+                    en.group.position.y -= 0.05; en.group.rotation.z += 0.01; en.timer++;
+                    if (en.timer > 150) { scene.remove(en.group); enemies.splice(idx, 1); spawnEnemy(); }
                 }
             });
 
-            // Pulled camera back (90 units) to fit the longer ship
-            const camPos = new THREE.Vector3(0, 45, -95).applyMatrix4(ship.matrixWorld);
-            camera.position.lerp(camPos, 0.1);
+            // Camera
+            const camPos = new THREE.Vector3(0, 50, -100).applyMatrix4(ship.matrixWorld);
+            camera.position.lerp(camPos, 0.08);
             camera.lookAt(ship.position);
-            document.getElementById('speed').innerText = `STATUS: ${Math.abs(Math.floor(spd * 45))} KNOTS`;
+
+            document.getElementById('speed').innerText = `STATUS: ${Math.abs(Math.floor(spd * 40))} KNOTS`;
             renderer.render(scene, camera);
         }
         animate();
