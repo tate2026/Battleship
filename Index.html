@@ -4,52 +4,161 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Montana Naval Strike PWA</title>
+    <title>Montana Battleship Drive</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: none; }
-        #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; text-shadow: 2px 2px 4px #000; }
+        body { margin: 0; overflow: hidden; background: #001122; font-family: sans-serif; touch-action: none; }
+        #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; }
+        #speed { font-size: 24px; font-weight: bold; color: #00ffcc; }
         
-        /* Joystick Styles */
-        #touch-zone {
-            position: absolute; bottom: 40px; left: 40px; 
-            width: 150px; height: 150px; 
-            border: 2px solid rgba(255,255,255,0.2); border-radius: 50%;
-            background: rgba(255,255,255,0.05);
-        }
-        #joystick-knob {
-            position: absolute; top: 50%; left: 50%;
-            width: 50px; height: 50px; margin: -25px;
-            background: rgba(255,255,255,0.4); border-radius: 50%;
-            transition: transform 0.1s ease-out;
-        }
-        #fire-btn {
-            position: absolute; bottom: 60px; right: 40px;
-            width: 80px; height: 80px; border-radius: 50%;
-            background: rgba(255, 0, 0, 0.4); border: 2px solid white;
-            color: white; font-weight: bold; display: flex;
-            align-items: center; justify-content: center; pointer-events: auto;
-        }
+        /* Mobile Controls */
+        .ctrl { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); }
+        #touch-zone { bottom: 30px; left: 30px; width: 120px; height: 120px; }
+        #knob { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: rgba(255,255,255,0.5); border-radius: 50%; }
+        #fire-btn { bottom: 50px; right: 40px; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; background: rgba(255,0,0,0.3); pointer-events: auto; }
     </style>
 </head>
 <body>
     <div id="ui">
-        <h2>USS MONTANA (BB-67)</h2>
-        <div id="speed-display">Speed: 0 knots</div>
+        <div>USS MONTANA (BB-67)</div>
+        <div id="speed">0 KNOTS</div>
     </div>
-
-    <div id="touch-zone">
-        <div id="joystick-knob"></div>
-    </div>
-    <div id="fire-btn">FIRE</div>
+    
+    <div id="touch-zone" class="ctrl"><div id="knob"></div></div>
+    <div id="fire-btn" class="ctrl">FIRE</div>
 
     <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-            }
-        }
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
     </script>
-    <script type="module" src="app.js"></script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // --- ENGINE SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x051020); // Dark Ocean Night
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
+        // Initial Camera Position: High and behind
+        camera.position.set(0, 15, 30); 
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // --- LIGHTING ---
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
+        scene.add(hemiLight);
+        const sun = new THREE.DirectionalLight(0xffffff, 1);
+        sun.position.set(10, 20, 10);
+        scene.add(sun);
+
+        // --- THE SHIP (MONTANA CLASS) ---
+        const shipGroup = new THREE.Group();
+        scene.add(shipGroup);
+
+        // 1. The Hull (Grey)
+        const hull = new THREE.Mesh(
+            new THREE.BoxGeometry(3, 2, 14),
+            new THREE.MeshStandardMaterial({ color: 0x888888 })
+        );
+        shipGroup.add(hull);
+
+        // 2. The 4 Turrets
+        const turrets = [];
+        const zPos = [5, 3, -2, -4]; // 2 Forward, 2 Aft
+        zPos.forEach(z => {
+            const tGroup = new THREE.Group();
+            tGroup.position.set(0, 1.2, z);
+            
+            const tBase = new THREE.Mesh(
+                new THREE.BoxGeometry(1.8, 0.8, 2),
+                new THREE.MeshStandardMaterial({ color: 0x555555 })
+            );
+            tGroup.add(tBase);
+
+            // 3 Barrels per Turret
+            for(let i = -1; i <= 1; i++) {
+                const gun = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.15, 0.15, 3),
+                    new THREE.MeshStandardMaterial({ color: 0x333333 })
+                );
+                gun.rotation.x = Math.PI / 2;
+                gun.position.set(i * 0.4, 0.2, 1.5);
+                tGroup.add(gun);
+            }
+            shipGroup.add(tGroup);
+        });
+
+        // --- OCEAN ---
+        const ocean = new THREE.Mesh(
+            new THREE.PlaneGeometry(10000, 10000),
+            new THREE.MeshStandardMaterial({ color: 0x001a33 })
+        );
+        ocean.rotation.x = -Math.PI / 2;
+        ocean.position.y = -0.5; // Slightly below hull
+        scene.add(ocean);
+
+        // --- CONTROLS ---
+        let input = { fwd: 0, turn: 0 };
+        const keys = {};
+        window.onkeydown = (e) => keys[e.key.toLowerCase()] = true;
+        window.onkeyup = (e) => keys[e.key.toLowerCase()] = false;
+
+        // Joystick Logic
+        const zone = document.getElementById('touch-zone');
+        const knob = document.getElementById('knob');
+        zone.ontouchmove = (e) => {
+            const r = zone.getBoundingClientRect();
+            const tx = (e.touches[0].clientX - (r.left + r.width/2)) / (r.width/2);
+            const ty = ((r.top + r.height/2) - e.touches[0].clientY) / (r.height/2);
+            input.turn = Math.max(-1, Math.min(1, tx));
+            input.fwd = Math.max(-1, Math.min(1, ty));
+            knob.style.transform = `translate(${input.turn * 30}px, ${-input.fwd * 30}px)`;
+        };
+        zone.ontouchend = () => {
+            input = { fwd: 0, turn: 0 };
+            knob.style.transform = `translate(0,0)`;
+        };
+
+        // --- PHYSICS ---
+        let speed = 0;
+        const MAX_SPEED = 0.5;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Movement Logic
+            const move = keys['w'] ? 1 : (keys['s'] ? -1 : input.fwd);
+            const rot = keys['a'] ? -1 : (keys['d'] ? 1 : input.turn);
+
+            if(Math.abs(move) > 0.1) speed = THREE.MathUtils.lerp(speed, move * MAX_SPEED, 0.02);
+            else speed *= 0.98;
+
+            // Battleship turn radius (must be moving to turn)
+            shipGroup.rotation.y -= rot * 0.01 * (Math.abs(speed) / MAX_SPEED);
+            
+            // Move forward based on ship's rotation
+            shipGroup.position.x += Math.sin(shipGroup.rotation.y) * speed;
+            shipGroup.position.z += Math.cos(shipGroup.rotation.y) * speed;
+
+            // Camera Following (Smooth Lerp)
+            const idealOffset = new THREE.Vector3(0, 12, -25).applyMatrix4(shipGroup.matrixWorld);
+            camera.position.lerp(idealOffset, 0.05);
+            camera.lookAt(shipGroup.position);
+
+            // Update UI
+            document.getElementById('speed').innerText = Math.abs(Math.floor(speed * 100)) + " KNOTS";
+
+            renderer.render(scene, camera);
+        }
+
+        window.onresize = () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+
+        animate();
+    </script>
 </body>
 </html>
