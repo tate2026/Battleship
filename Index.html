@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>USS Montana: Islands of War</title>
+    <title>USS Montana: Naval Trials</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #0277bd; font-family: 'Segoe UI', sans-serif; touch-action: none; }
+        body { margin: 0; overflow: hidden; background: #01579b; font-family: 'Segoe UI', sans-serif; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); z-index: 100; }
         .stick-container { position: absolute; border-radius: 50%; background: rgba(0,0,0,0.4); border: 2px solid rgba(255,255,255,0.3); z-index: 200; backdrop-filter: blur(5px); }
         .knob { position: absolute; width: 44px; height: 44px; background: radial-gradient(#eee, #999); border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
@@ -21,7 +21,7 @@
 </head>
 <body>
     <div id="ui">
-        <div style="font-size: 24px; font-weight: 900; color: #ffd700; letter-spacing: 1px;">BATTLESHIP COMMAND</div>
+        <div style="font-size: 24px; font-weight: 900; color: #ffd700; letter-spacing: 1px;">USS MONTANA BB-67</div>
         <div id="speed">KNOTS: 0</div>
         <div id="score">TARGETS SUNK: 0</div>
     </div>
@@ -39,9 +39,9 @@
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x81d4fa);
-        scene.fog = new THREE.Fog(0x81d4fa, 1500, 10000); 
+        scene.fog = new THREE.Fog(0x81d4fa, 2000, 12000); 
         
-        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 35000);
+        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 40000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
@@ -50,7 +50,6 @@
         sun.position.set(500, 1000, 500);
         scene.add(sun, new THREE.AmbientLight(0xffffff, 0.7));
 
-        // --- SHIP CONSTRUCTOR ---
         function createDetailedShip(w, h, l, hullColor, deckColor) {
             const group = new THREE.Group();
             const shape = new THREE.Shape();
@@ -58,26 +57,21 @@
             shape.bezierCurveTo(w/2, l/3, w/2, -l/3, w/4, -l/2);
             shape.lineTo(-w/4, -l/2);
             shape.bezierCurveTo(-w/2, -l/3, -w/2, l/3, 0, l/2);
-            
             const hullGeo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: true, bevelSize: 0.5 });
             const hull = new THREE.Mesh(hullGeo, new THREE.MeshStandardMaterial({ color: hullColor }));
             hull.rotation.x = Math.PI/2;
             hull.position.y = h/2;
             group.add(hull);
-
             const deck = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.85, l * 0.95), new THREE.MeshStandardMaterial({ color: deckColor }));
             deck.rotation.x = -Math.PI/2;
             deck.position.y = h + 0.1;
             group.add(deck);
-
             const bridge = new THREE.Mesh(new THREE.BoxGeometry(w*0.5, h, l*0.15), new THREE.MeshStandardMaterial({color: 0x78909c}));
             bridge.position.y = h + h/2;
             group.add(bridge);
-
             return group;
         }
 
-        // --- PLAYER: USS MONTANA ---
         const ship = createDetailedShip(14, 6, 130, 0x455a64, 0x8d6e63);
         scene.add(ship);
 
@@ -101,35 +95,26 @@
             turrets.push({ pivot: t, guns: gPivot, barrels: barrels });
         });
 
-        // --- DYNAMIC BLUE SEA ---
-        const oceanGeo = new THREE.PlaneGeometry(60000, 60000, 64, 64);
-        const oceanMat = new THREE.MeshStandardMaterial({ color: 0x01579b, roughness: 0.1, metalness: 0.2 });
-        const ocean = new THREE.Mesh(oceanGeo, oceanMat);
+        // --- CALM FLAT SEA ---
+        const ocean = new THREE.Mesh(new THREE.PlaneGeometry(80000, 80000), new THREE.MeshStandardMaterial({ color: 0x01579b, roughness: 0.1 }));
         ocean.rotation.x = -Math.PI / 2;
         scene.add(ocean);
 
         // --- ISLANDS ---
-        function createIsland(x, z) {
-            const size = 100 + Math.random() * 300;
-            const geo = new THREE.ConeGeometry(size, 40 + Math.random() * 60, 8);
-            const mat = new THREE.MeshStandardMaterial({ color: 0x4caf50 }); // Lush green
-            const island = new THREE.Mesh(geo, mat);
+        for(let i=0; i<25; i++) {
+            const size = 150 + Math.random() * 400;
+            const island = new THREE.Mesh(new THREE.ConeGeometry(size, 60, 8), new THREE.MeshStandardMaterial({ color: 0x4caf50 }));
+            const x = (Math.random()-0.5)*18000, z = (Math.random()-0.5)*18000;
             island.position.set(x, -5, z);
             scene.add(island);
-            // Sandy beach ring
-            const beach = new THREE.Mesh(new THREE.CircleGeometry(size + 20, 16), new THREE.MeshStandardMaterial({color: 0xffecb3}));
-            beach.rotation.x = -Math.PI/2;
-            beach.position.set(x, 0.1, z);
+            const beach = new THREE.Mesh(new THREE.CircleGeometry(size + 30, 16), new THREE.MeshStandardMaterial({color: 0xffecb3}));
+            beach.rotation.x = -Math.PI/2; beach.position.set(x, 0.1, z);
             scene.add(beach);
         }
-        for(let i=0; i<30; i++) {
-            createIsland((Math.random()-0.5)*15000, (Math.random()-0.5)*15000);
-        }
 
-        // --- FX & LOGIC ---
         const particles = [], projectiles = [];
         function spawnFX(pos, color, size, vel, decay=0.03, grow=1.0) {
-            const p = new THREE.Mesh(new THREE.SphereGeometry(size), new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.8}));
+            const p = new THREE.Mesh(new THREE.SphereGeometry(size), new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.6}));
             p.position.copy(pos);
             scene.add(p);
             particles.push({m:p, v:vel, life:1.0, d:decay, g:grow});
@@ -137,25 +122,24 @@
 
         function fire() {
             turrets.forEach(t => t.barrels.forEach(b => {
-                const shell = new THREE.Mesh(new THREE.SphereGeometry(1.5), new THREE.MeshBasicMaterial({color: 0xffd600}));
+                const shell = new THREE.Mesh(new THREE.SphereGeometry(1.6), new THREE.MeshBasicMaterial({color: 0xffd600}));
                 const pos = new THREE.Vector3(); b.getWorldPosition(pos);
                 const dir = new THREE.Vector3(0,1,0).applyQuaternion(b.getWorldQuaternion(new THREE.Quaternion()));
                 shell.position.copy(pos);
-                projectiles.push({m:shell, v:dir.multiplyScalar(10), g:0.02});
+                projectiles.push({m:shell, v:dir.multiplyScalar(12), g:0.02});
                 scene.add(shell);
-                spawnFX(pos, 0xff9100, 3, new THREE.Vector3(0,0.2,0), 0.1, 1.3);
-                spawnFX(pos, 0x555555, 2, new THREE.Vector3(0,0.1,0), 0.04, 1.1);
+                spawnFX(pos, 0xff9100, 2.8, new THREE.Vector3(0,0.2,0), 0.1, 1.3);
+                spawnFX(pos, 0x444444, 2, new THREE.Vector3(0,0.1,0), 0.04, 1.2);
             }));
         }
 
-        const enemies = Array(20).fill(0).map(() => {
-            const e = createDetailedShip(12, 5, 50, 0x37474f, 0x5d4037);
-            e.position.set((Math.random()-0.5)*8000, 0, (Math.random()-0.5)*8000);
+        const enemies = Array(15).fill(0).map(() => {
+            const e = createDetailedShip(12, 5, 60, 0x37474f, 0x5d4037);
+            e.position.set((Math.random()-0.5)*10000, 0, (Math.random()-0.5)*10000);
             scene.add(e);
             return { mesh: e, sinking: false, timer: 0 };
         });
 
-        // --- CONTROLS ---
         let mv = {x:0, y:0}, am = {x:0, y:0};
         const bind = (id, obj) => {
             const el = document.getElementById(id), kn = el.querySelector('.knob');
@@ -174,19 +158,24 @@
         document.getElementById('fire-btn').addEventListener('pointerdown', fire);
 
         let speed = 0, score = 0;
-        function update(time) {
+        const MAX_SPEED = 1.6; // ~32 Knots in engine units
+        const ACCEL = 0.0025;  // Half acceleration for a heavy feel
+
+        function update() {
             requestAnimationFrame(update);
             
-            // Waves effect
-            const verts = oceanGeo.attributes.position.array;
-            for(let i=0; i<verts.length; i+=3) {
-                verts[i+2] = Math.sin(verts[i]/500 + time/1000) * 5 + Math.cos(verts[i+1]/500 + time/1000) * 5;
-            }
-            oceanGeo.attributes.position.needsUpdate = true;
-
-            speed = THREE.MathUtils.lerp(speed, -mv.y * 3, 0.01);
-            ship.rotation.y -= mv.x * 0.005 * (Math.abs(speed)+0.1);
+            // PHYSICS: Limited acceleration and top speed
+            let targetSpeed = -mv.y * MAX_SPEED;
+            speed = THREE.MathUtils.lerp(speed, targetSpeed, ACCEL);
+            
+            ship.rotation.y -= mv.x * 0.003 * (Math.abs(speed/MAX_SPEED) + 0.1);
             ship.translateZ(speed);
+
+            // WATER TRAILS (Wake)
+            if (Math.abs(speed) > 0.1) {
+                const wakePos = new THREE.Vector3(0, 0.1, -60).applyMatrix4(ship.matrixWorld);
+                spawnFX(wakePos, 0xffffff, 1.5, new THREE.Vector3(0,0,0), 0.015, 1.02);
+            }
 
             particles.forEach((p, i) => {
                 p.m.position.add(p.v); p.life -= p.d;
@@ -201,36 +190,42 @@
                     scene.remove(p.m); projectiles.splice(i,1);
                 } else {
                     enemies.forEach(en => {
-                        if(!en.sinking && p.m.position.distanceTo(en.mesh.position) < 45) {
+                        if(!en.sinking && p.m.position.distanceTo(en.mesh.position) < 50) {
                             en.sinking = true; score++;
                             document.getElementById('score').innerText = `TARGETS SUNK: ${score}`;
                             scene.remove(p.m); projectiles.splice(i,1);
-                            for(let j=0; j<10; j++) spawnFX(en.mesh.position, 0xff3d00, 5, new THREE.Vector3((Math.random()-0.5)*4, 2, (Math.random()-0.5)*4), 0.02, 1.05);
+                            for(let j=0; j<12; j++) spawnFX(en.mesh.position, 0xff3d00, 6, new THREE.Vector3((Math.random()-0.5)*5, 2.5, (Math.random()-0.5)*5), 0.015, 1.05);
                         }
                     });
                 }
             });
 
             turrets.forEach(t => {
-                t.pivot.rotation.y = THREE.MathUtils.lerp(t.pivot.rotation.y, -am.x * Math.PI, 0.06);
-                t.guns.rotation.x = THREE.MathUtils.lerp(t.guns.rotation.x, am.y * 0.6 - 0.1, 0.06);
+                t.pivot.rotation.y = THREE.MathUtils.lerp(t.pivot.rotation.y, -am.x * Math.PI, 0.04);
+                t.guns.rotation.x = THREE.MathUtils.lerp(t.guns.rotation.x, am.y * 0.6 - 0.1, 0.04);
             });
 
-            const camGoal = new THREE.Vector3(0, 200, -420).applyMatrix4(ship.matrixWorld);
-            camera.position.lerp(camGoal, 0.05);
+            const camGoal = new THREE.Vector3(0, 220, -450).applyMatrix4(ship.matrixWorld);
+            camera.position.lerp(camGoal, 0.04);
             camera.lookAt(ship.position);
 
             enemies.forEach((en, idx) => {
                 if(en.sinking) {
-                    en.mesh.position.y -= 0.15; en.mesh.rotation.z += 0.003; en.timer++;
-                    if(en.timer > 250) { scene.remove(en.mesh); enemies.splice(idx,1); }
+                    en.mesh.position.y -= 0.1; en.mesh.rotation.z += 0.002; en.timer++;
+                    if(en.timer > 300) { scene.remove(en.mesh); enemies.splice(idx,1); enemies.push(createEnemy()); }
                 }
             });
 
-            document.getElementById('speed').innerText = `KNOTS: ${Math.abs(Math.floor(speed*20))}`;
+            document.getElementById('speed').innerText = `KNOTS: ${Math.abs(Math.floor((speed / MAX_SPEED) * 32))}`;
             renderer.render(scene, camera);
         }
-        update(0);
+        update();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
