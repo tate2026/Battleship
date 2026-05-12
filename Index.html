@@ -3,16 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>USS Montana: Fleet Command</title>
+    <title>USS Montana: Dreadnought Scale</title>
     <style>
         body { margin: 0; overflow: hidden; background: #64b5f6; font-family: 'Segoe UI', sans-serif; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); z-index: 100; }
         .stick-container { position: absolute; border-radius: 50%; background: rgba(0,0,0,0.3); border: 2px solid rgba(255,255,255,0.2); z-index: 200; touch-action: none; backdrop-filter: blur(8px); }
         .knob { position: absolute; width: 44px; height: 44px; background: radial-gradient(#fff, #ccc); border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        
+        /* Layout Changes */
         #stick-move { bottom: 40px; left: 40px; width: 120px; height: 120px; }
         #stick-aim { bottom: 40px; right: 40px; width: 120px; height: 120px; }
+        
+        /* Fire button moved to LEFT side above movement stick */
         #fire-btn { 
-            position: absolute; bottom: 180px; right: 50px; width: 100px; height: 100px; 
+            position: absolute; bottom: 180px; left: 50px; width: 100px; height: 100px; 
             border-radius: 50%; background: radial-gradient(#ff5f6d, #ffc371); border: 4px solid #fff;
             color: white; font-weight: 900; font-size: 18px; display: flex; align-items: center; justify-content: center;
             cursor: pointer; z-index: 300; box-shadow: 0 10px 20px rgba(0,0,0,0.4); text-transform: uppercase;
@@ -37,12 +41,11 @@
     <script type="module">
         import * as THREE from 'three';
 
-        // --- ENGINE SETUP ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x81d4fa);
-        scene.fog = new THREE.Fog(0x81d4fa, 500, 2500); // Pro fog effect
+        scene.fog = new THREE.Fog(0x81d4fa, 800, 3500); 
         
-        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.5, 10000);
+        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.5, 15000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -52,12 +55,11 @@
         sun.position.set(200, 400, 100);
         scene.add(sun, new THREE.AmbientLight(0xffffff, 0.5));
 
-        // --- SHARED GEOMETRY HELPERS ---
+        // --- HULL FACTORY ---
         function createShipMesh(hullWidth, hullHeight, hullLength, color) {
             const group = new THREE.Group();
             const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.5 });
             
-            // Tapered Hull (Pointed Bow)
             const hullPoints = [
                 new THREE.Vector2(0, -hullLength/2),
                 new THREE.Vector2(hullWidth/2, -hullLength/4),
@@ -65,38 +67,37 @@
                 new THREE.Vector2(0, hullLength/2)
             ];
             const shape = new THREE.Shape(hullPoints);
-            const extrudeSettings = { depth: hullHeight, bevelEnabled: true, bevelSize: 0.2 };
+            const extrudeSettings = { depth: hullHeight, bevelEnabled: true, bevelSize: 0.4 };
             const hullGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
             const hullMesh = new THREE.Mesh(hullGeo, mat);
             hullMesh.rotation.x = Math.PI/2;
             hullMesh.position.y = hullHeight/2;
             group.add(hullMesh);
-
             return { group, mat };
         }
 
-        // --- PLAYER SHIP ---
-        const { group: ship } = createShipMesh(4.5, 3, 26, 0x455a64);
+        // --- PLAYER SHIP: DOUBLED SIZE ---
+        // Width 9, Length 52 (Massive increase)
+        const { group: ship } = createShipMesh(9.5, 4, 52, 0x455a64);
         scene.add(ship);
         
-        // Detailed Superstructure
-        const bridgeBase = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2, 8), new THREE.MeshStandardMaterial({color: 0x37474f}));
-        bridgeBase.position.set(0, 3.5, -2);
+        const bridgeBase = new THREE.Mesh(new THREE.BoxGeometry(5, 5, 12), new THREE.MeshStandardMaterial({color: 0x37474f}));
+        bridgeBase.position.set(0, 6, -2);
         ship.add(bridgeBase);
 
         const turrets = [];
-        [10, 6, -6, -10].forEach(z => {
+        [20, 12, -12, -20].forEach(z => {
             const tPivot = new THREE.Group();
-            tPivot.position.set(0, 2.5, z);
-            const box = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.4, 4), new THREE.MeshStandardMaterial({color: 0x263238}));
+            tPivot.position.set(0, 4.2, z); // Sits on top of the taller hull
+            const box = new THREE.Mesh(new THREE.BoxGeometry(6, 2, 7), new THREE.MeshStandardMaterial({color: 0x263238}));
             tPivot.add(box);
             const gPivot = new THREE.Group();
             tPivot.add(gPivot);
             const barrels = [];
             for(let i = -1; i <= 1; i++) {
-                const b = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.22, 7), new THREE.MeshStandardMaterial({color: 0x111111}));
+                const b = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 12), new THREE.MeshStandardMaterial({color: 0x111111}));
                 b.rotation.x = Math.PI/2;
-                b.position.set(i * 0.9, 0.4, 3.5);
+                b.position.set(i * 1.6, 0.6, 6);
                 gPivot.add(b);
                 barrels.push(b);
             }
@@ -104,38 +105,26 @@
             turrets.push({ pivot: tPivot, guns: gPivot, barrels: barrels });
         });
 
-        // --- ENEMY SHIP (REALISTIC VERSION) ---
+        // --- ENEMIES ---
         function createEnemy() {
-            const eColor = 0x212121;
-            const { group: eGroup } = createShipMesh(6, 4, 16, eColor);
-            
-            // Bridge
-            const eBridge = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 5), new THREE.MeshStandardMaterial({color: 0x424242}));
-            eBridge.position.set(0, 4, 0);
-            eGroup.add(eBridge);
-
-            // Red Waterline
-            const waterline = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.8, 16.2), new THREE.MeshBasicMaterial({color: 0xb71c1c}));
-            waterline.position.y = 0.4;
+            const { group: eGroup } = createShipMesh(10, 5, 30, 0x212121);
+            const waterline = new THREE.Mesh(new THREE.BoxGeometry(10.2, 1, 30.2), new THREE.MeshBasicMaterial({color: 0xb71c1c}));
+            waterline.position.y = 0.5;
             eGroup.add(waterline);
-
-            eGroup.position.set((Math.random()-0.5)*2000, 0, (Math.random()-0.5)*2000);
+            eGroup.position.set((Math.random()-0.5)*3000, 0, (Math.random()-0.5)*3000);
             scene.add(eGroup);
             return { group: eGroup, sinking: false, timer: 0 };
         }
-
         const enemies = [];
         for(let i=0; i<15; i++) enemies.push(createEnemy());
 
-        // --- OCEAN ---
-        const ocean = new THREE.Mesh(new THREE.PlaneGeometry(30000, 30000), new THREE.MeshStandardMaterial({ color: 0x0277bd, roughness: 0.1, metalness: 0.1 }));
+        const ocean = new THREE.Mesh(new THREE.PlaneGeometry(40000, 40000), new THREE.MeshStandardMaterial({ color: 0x0277bd, roughness: 0.1 }));
         ocean.rotation.x = -Math.PI / 2;
         scene.add(ocean);
 
-        // --- FX SYSTEMS ---
         const particles = [];
         function spawnFX(pos, color, scale, vel, lifeDecay = 0.02) {
-            const p = new THREE.Mesh(new THREE.SphereGeometry(scale), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.7 }));
+            const p = new THREE.Mesh(new THREE.SphereGeometry(scale), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.6 }));
             p.position.copy(pos);
             scene.add(p);
             particles.push({ mesh: p, vel: vel, life: 1.0, decay: lifeDecay });
@@ -145,19 +134,18 @@
         function fire() {
             turrets.forEach(t => {
                 t.barrels.forEach(barrel => {
-                    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.7), new THREE.MeshBasicMaterial({ color: 0xffd54f }));
+                    const shell = new THREE.Mesh(new THREE.SphereGeometry(1.2), new THREE.MeshBasicMaterial({ color: 0xffd54f }));
                     barrel.updateMatrixWorld(true);
                     const pos = new THREE.Vector3(); barrel.getWorldPosition(pos);
                     shell.position.copy(pos);
                     const dir = new THREE.Vector3(0, 1, 0).applyQuaternion(barrel.getWorldQuaternion(new THREE.Quaternion()));
-                    projectiles.push({ mesh: shell, vel: dir.multiplyScalar(4.8), gravity: 0.018 });
+                    projectiles.push({ mesh: shell, vel: dir.multiplyScalar(6.5), gravity: 0.02 });
                     scene.add(shell);
-                    spawnFX(pos, 0xffffff, 1.2, new THREE.Vector3(0, 0.2, 0), 0.05); // Flash
+                    spawnFX(pos, 0xffffff, 2, new THREE.Vector3(0, 0.4, 0), 0.08);
                 });
             });
         }
 
-        // --- INPUT ---
         let moveIn = { x: 0, y: 0 }, aimIn = { x: 0, y: 0 };
         function bindStick(id, knId, input) {
             const el = document.getElementById(id), kn = document.getElementById(knId);
@@ -177,37 +165,33 @@
         bindStick('stick-aim', 'knob-aim', aimIn);
         document.getElementById('fire-btn').addEventListener('pointerdown', fire);
 
-        // --- MAIN LOOP ---
         let score = 0, spd = 0;
         function animate() {
             requestAnimationFrame(animate);
 
-            // Physics
-            spd = THREE.MathUtils.lerp(spd, -moveIn.y * 1.1, 0.015);
-            ship.rotation.y -= moveIn.x * 0.008 * (Math.abs(spd)+0.1);
+            spd = THREE.MathUtils.lerp(spd, -moveIn.y * 1.5, 0.01);
+            ship.rotation.y -= moveIn.x * 0.005 * (Math.abs(spd)+0.1);
             ship.translateZ(spd);
 
-            // Wake Effect
-            if(Math.abs(spd) > 0.1 && Math.random() > 0.5) {
-                const wakePos = new THREE.Vector3(0, 0.1, -12).applyMatrix4(ship.matrixWorld);
-                spawnFX(wakePos, 0xffffff, 1.5, new THREE.Vector3(0,0,0), 0.03);
+            // TINTER Wake Particles
+            if(Math.abs(spd) > 0.1 && Math.random() > 0.3) {
+                const wakePos = new THREE.Vector3((Math.random()-0.5)*8, 0.1, -26).applyMatrix4(ship.matrixWorld);
+                spawnFX(wakePos, 0xffffff, 0.4, new THREE.Vector3(0,0,0), 0.02); // Much smaller scale
             }
 
-            // Aiming
             turrets.forEach(t => {
                 t.pivot.rotation.y = THREE.MathUtils.lerp(t.pivot.rotation.y, -aimIn.x * Math.PI, 0.06);
                 t.guns.rotation.x = THREE.MathUtils.lerp(t.guns.rotation.x, aimIn.y * 0.7 - 0.2, 0.06);
             });
 
-            // Projectiles & Particles
             for(let i=projectiles.length-1; i>=0; i--) {
                 const p = projectiles[i]; p.mesh.position.add(p.vel); p.vel.y -= p.gravity;
                 if(p.mesh.position.y < 0) {
-                    spawnFX(p.mesh.position, 0xffffff, 2, new THREE.Vector3(0,0.1,0), 0.04); // Water impact
+                    spawnFX(p.mesh.position, 0xffffff, 3, new THREE.Vector3(0,0.2,0), 0.04);
                     scene.remove(p.mesh); projectiles.splice(i,1);
                 } else {
                     enemies.forEach(en => {
-                        if(!en.sinking && p.mesh.position.distanceTo(en.group.position) < 18) {
+                        if(!en.sinking && p.mesh.position.distanceTo(en.group.position) < 25) {
                             en.sinking = true; score++;
                             document.getElementById('score').innerText = `CONFIRMED KILLS: ${score}`;
                             scene.remove(p.mesh); projectiles.splice(i,1);
@@ -219,23 +203,22 @@
             for(let i=particles.length-1; i>=0; i--) {
                 const p = particles[i]; p.mesh.position.add(p.vel); p.life -= p.decay;
                 p.mesh.material.opacity = p.life;
-                p.mesh.scale.setScalar(1 + (1 - p.life) * 3);
                 if(p.life <= 0) { scene.remove(p.mesh); particles.splice(i,1); }
             }
 
             enemies.forEach((en, idx) => {
                 if(en.sinking) {
-                    en.group.position.y -= 0.04; en.group.rotation.x += 0.005; en.timer++;
+                    en.group.position.y -= 0.05; en.group.rotation.x += 0.005; en.timer++;
                     if(en.timer > 200) { scene.remove(en.group); enemies.splice(idx,1); enemies.push(createEnemy()); }
                 }
             });
 
-            // Camera Tracking
-            const camPos = new THREE.Vector3(0, 60, -120).applyMatrix4(ship.matrixWorld);
+            // Camera moved further back to accommodate huge ship
+            const camPos = new THREE.Vector3(0, 100, -180).applyMatrix4(ship.matrixWorld);
             camera.position.lerp(camPos, 0.05);
             camera.lookAt(ship.position);
 
-            document.getElementById('speed').innerText = `ENGINE: ${Math.abs(Math.floor(spd*40))} KNOTS`;
+            document.getElementById('speed').innerText = `ENGINE: ${Math.abs(Math.floor(spd*30))} KNOTS`;
             renderer.render(scene, camera);
         }
         animate();
