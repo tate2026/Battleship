@@ -50,7 +50,6 @@
         sun.position.set(1000, 2000, 1000);
         scene.add(sun, new THREE.AmbientLight(0xffffff, 0.8));
 
-        // --- SHIP GENERATOR (L: 260, W: 28) ---
         function createShip(w, h, l, color, deckColor, isPlayer = false) {
             const group = new THREE.Group();
             const shape = new THREE.Shape();
@@ -76,7 +75,6 @@
             group.add(deck);
 
             if(isPlayer) {
-                // Bridge & Smokestacks
                 const tower = new THREE.Mesh(new THREE.BoxGeometry(w*0.3, h*2, l*0.1), new THREE.MeshStandardMaterial({color: 0x78909c}));
                 tower.position.set(0, h+h, 0);
                 group.add(tower);
@@ -113,10 +111,9 @@
             turrets.push({ group: t, pivot: pivot, barrels: barrels });
         });
 
-        // --- OCEAN ---
-        const ocean = new THREE.Mesh(new THREE.PlaneGeometry(120000, 120000), new THREE.MeshStandardMaterial({ color: 0x01579b, roughness: 0.1 }));
+        const ocean = new THREE.Mesh(new THREE.PlaneGeometry(150000, 150000), new THREE.MeshStandardMaterial({ color: 0x01579b, roughness: 0.1 }));
         ocean.rotation.x = -Math.PI / 2;
-        ocean.position.y = -0.1;
+        ocean.position.y = -0.05;
         scene.add(ocean);
 
         const particles = [], projectiles = [];
@@ -135,18 +132,17 @@
                 shell.position.copy(pos);
                 projectiles.push({m:shell, v:dir.multiplyScalar(15), g:0.02});
                 scene.add(shell);
-                spawnFX(pos, 0xff9100, 3, new THREE.Vector3(0,0.2,0), 0.1, 1.3);
+                spawnFX(pos, 0xff9100, 2, new THREE.Vector3(0,0.1,0), 0.15, 1.2);
             }));
         }
 
-        const enemies = Array(10).fill(0).map(() => {
+        const enemies = Array(12).fill(0).map(() => {
             const e = createShip(14, 6, 80, 0x37474f, 0x5d4037);
-            e.position.set((Math.random()-0.5)*20000, 0, (Math.random()-0.5)*20000);
+            e.position.set((Math.random()-0.5)*25000, 0, (Math.random()-0.5)*25000);
             scene.add(e);
             return { mesh: e, sinking: false, timer: 0 };
         });
 
-        // --- INPUTS ---
         let mv = {x:0, y:0}, am = {x:0, y:0};
         const bind = (id, obj) => {
             const el = document.getElementById(id), kn = el.querySelector('.knob');
@@ -172,16 +168,16 @@
             requestAnimationFrame(update);
             
             speed = THREE.MathUtils.lerp(speed, -mv.y * MAX_SPEED, ACCEL);
-            ship.rotation.y -= mv.x * 0.0015 * (Math.abs(speed/MAX_SPEED) + 0.05);
+            ship.rotation.y -= mv.x * 0.0012 * (Math.abs(speed/MAX_SPEED) + 0.05);
             ship.translateZ(speed);
 
-            // REFINED WAKE TRAIL
-            if (Math.abs(speed) > 0.05) {
-                const sternPos = new THREE.Vector3(0, 0, -135).applyMatrix4(ship.matrixWorld);
+            // REFINED SMALLER WAKE
+            if (Math.abs(speed) > 0.1) {
+                const sternPos = new THREE.Vector3(0, 0.1, -130).applyMatrix4(ship.matrixWorld);
                 for(let i = -1; i <= 1; i += 2) {
-                    const driftX = (i * 0.4);
-                    const driftVec = new THREE.Vector3(driftX, 0, -0.2).applyQuaternion(ship.quaternion);
-                    spawnFX(sternPos, 0xffffff, 2.5, driftVec, 0.012, 1.06, 0.3);
+                    const driftVec = new THREE.Vector3(i * 0.15, 0, -0.1).applyQuaternion(ship.quaternion);
+                    // Decay is faster (0.025) and size is smaller (0.8)
+                    spawnFX(sternPos, 0xffffff, 0.8, driftVec, 0.025, 1.04, 0.4);
                 }
             }
 
@@ -202,7 +198,7 @@
                             en.sinking = true; score++;
                             document.getElementById('score').innerText = `TARGETS SUNK: ${score}`;
                             scene.remove(p.m); projectiles.splice(i,1);
-                            for(let j=0; j<15; j++) spawnFX(en.mesh.position, 0xff4500, 10, new THREE.Vector3((Math.random()-0.5)*8, 4, (Math.random()-0.5)*8), 0.01, 1.05);
+                            for(let j=0; j<15; j++) spawnFX(en.mesh.position, 0xff4500, 8, new THREE.Vector3((Math.random()-0.5)*8, 4, (Math.random()-0.5)*8), 0.015, 1.05);
                         }
                     });
                 }
@@ -228,7 +224,7 @@
             renderer.render(scene, camera);
         }
         update();
-        
+
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
