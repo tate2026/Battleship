@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>USS Montana: Modular Engine</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #01579b; font-family: 'Segoe UI', sans-serif; touch-action: none; }
+        #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; z-index: 100; }
+        .stick-container { position: absolute; border-radius: 50%; background: rgba(0,0,0,0.4); border: 2px solid rgba(255,255,255,0.3); z-index: 200; backdrop-filter: blur(5px); }
+        .knob { position: absolute; width: 44px; height: 44px; background: radial-gradient(#eee, #999); border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        #stick-move { bottom: 40px; left: 40px; width: 120px; height: 120px; }
+        #stick-aim { bottom: 40px; right: 40px; width: 120px; height: 120px; }
+        #fire-btn { 
+            position: absolute; bottom: 180px; left: 50px; width: 100px; height: 100px; 
+            border-radius: 50%; background: #b71c1c; border: 4px solid #fff;
+            color: white; font-weight: 900; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; z-index: 300; box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div style="font-size: 24px; font-weight: 900; color: #ffd700; letter-spacing: 1px;">USS MONTANA (BB-67)</div>
+        <div id="speed">KNOTS: 0</div>
+        <div id="score">TARGETS SUNK: 0</div>
+    </div>
+    
+    <div id="stick-move" class="stick-container"><div id="knob-move" class="knob"></div></div>
+    <div id="stick-aim" class="stick-container"><div id="knob-aim" class="knob"></div></div>
+    <div id="fire-btn">FIRE</div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // --- 1. CORE SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x81d4fa);
+        scene.fog = new THREE.Fog(0x81d4fa, 3000, 30000); 
+        
+        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 100000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const sun = new THREE.DirectionalLight(0xffffff, 2.5);
+        sun.position.set(1000, 2000, 1000);
+        scene.add(sun, new THREE.AmbientLight(0xffffff, 0.8));
+
+        // --- 2. SHIP FACTORY ---
+        class ShipBuilder {
+            static create(maxW, h, totalL, hullCol, deckCol, isPlayer = false) {
+                const group = new THREE.Group();
+                const sections = [
+                    { z: totalL/2,  w: 0.1 },   
+                    { z: totalL/4,  w: maxW },  
+                    { z: 0,         w: maxW },  
+                    { z: -totalL/4, w: maxW * 0.85 }, 
+                    { z: -totalL/2, w: maxW * 0.4 }  
+                ];
+
+                const hullShape = new THREE.Shape();
+                hullShape.moveTo(0, sections[0].z);
+                sections.forEach(s => hullShape.lineTo(s.w/2, s.z));
+                sections.slice().reverse().forEach(s => hullShape.lineTo(-s.w/2, s.z));
+                hullShape.lineTo(0, sections[0].z);
+
+                const hullGeom = new THREE.ExtrudeGeometry(hullShape, { depth: h, bevelEnabled: true, bevelSize: 1.5 });
+                const hull = new THREE.Mesh(hullGeom, new THREE.MeshStandardMaterial({ color: hullCol }));
+                hull.rotation.x = Math.PI/2;
+                hull.position.y = h/2;
+                group.add(hull);
+
+                const deckShape = new THREE.Shape();
+                const inset = 0.6; 
+                deckShape.moveTo(0, sections[0].z - inset);
+                sections.forEach(s => deckShape.lineTo((s.w/2) - inset, s.z));
+                sections.slice().reverse().forEach(s => deckShape.lineTo(-(s.w/2) + inset, s.z));
+                deckShape.lineTo(0, sections[0].z - inset);
+
+                const deck = new THREE.Mesh(new THREE.ShapeGeometry(deckShape), new THREE.MeshStandardMaterial({ color: deckCol }));
+                deck.rotation.x = -Math.PI/2;
+                deck.position.y = h + 0.15; 
+                group.add(deck);
+
+                if(isPlayer) this.addSuperstructure(group, maxW, h);
+                else this.addEnemyMast(group, h);
+
+                return group;
+            }
+
+            static addSuperstructure(group, maxW, h) {
+                const tower = new THREE.Mesh(new THREE.BoxGeometry(maxW*0.3, h*2.5, 35), new THREE.MeshStandardMaterial({color: 0x78909c}));
+                tower.position.set(0, h+h, 0);
+                group.add(tower);
+                [-25, 15].forEach(z => {
+                    const stack = new THREE.Mesh(new THREE.CylinderGeometry(maxW*0.1, maxW*0.12, 20), new THREE.MeshStandardMaterial({color: 0x222222}));
+                    stack.position.set(0, h+12, z);
+                    group.add(stack);
+                });
+            }
+
+            static addEnemyMast(group, h) {
+                const mast = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 55), new THREE.MeshBasicMaterial({color: 0xff3300}));
+                mast.position.y = h + 25;
+                group.add(mast);
+            }
+        }
+
+        // --- 3. WORLD BUILDER ---
+        const ocean = new THREE.Mesh(new THREE.PlaneGeometry(150000, 150000), new THREE.MeshStandardMaterial({ color: 0x01579b, roughness: 0.2 }));
+        ocean.rotation.x = -Math.PI / 2;
+        scene.add(ocean);
+
+        // Add Islands
+        for(let i=0; i<15; i++) {
+            const island = new THREE.Mesh(
+                new THREE.SphereGeometry(200 + Math.random()*400, 16, 8),
+                new THREE.MeshStandardMaterial({color: 0x2e7d32})
+            );
+            island.scale.y = 0.2;
+            island.position.set((Math.random()-0.5)*20000, -20, (Math.random()-0.5)*20000);
+            scene.add(island);
+        }
+
+        // --- 4. GAME STATE & LOGIC ---
+        const player = ShipBuilder.create(28, 8, 260, 0x455a64, 0x8d6e63, true);
+        scene.add(player);
+
+        const turrets = [-105, -70, 65, 100].map(z => {
+            const t = new THREE.Group(); t.position.set(0, 9.7, z);
+            t.add(new THREE.Mesh(new THREE.BoxGeometry(9, 4, 12), new THREE.MeshStandardMaterial({color: 0x263238})));
+            const pivot = new THREE.Group();
+            const barrels = [-2.5, 0, 2.5].map(x => {
+                const b = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 25), new THREE.MeshStandardMaterial({color: 0x111111}));
+                b.rotation.x = Math.PI/2; b.position.set(x, 0, 12);
+                pivot.add(b); return b;
+            });
+            t.add(pivot); player.add(t);
+            return { group: t, pivot: pivot, barrels: barrels };
+        });
+
+        const enemies = Array(12).fill(0).map(() => {
+            const e = ShipBuilder.create(14, 6, 80, 0x37474f, 0x5d4037, false);
+            const dist = 3000 + Math.random()*5000;
+            const ang = Math.random()*Math.PI*2;
+            e.position.set(Math.cos(ang)*dist, 0, Math.sin(ang)*dist);
+            scene.add(e);
+            return { mesh: e, sinking: false, timer: 0 };
+        });
+
+        const projectiles = [], particles = [];
+        let mv = {x:0, y:0}, am = {x:0, y:0}, score = 0, speed = 0;
+        const MAX_SPEED = 1.8, ACCEL = 0.0018, TURN = 0.0018;
+
+        function fire() {
+            turrets.forEach(t => t.barrels.forEach(b => {
+                const shell = new THREE.Mesh(new THREE.SphereGeometry(2), new THREE.MeshBasicMaterial({color: 0xffd600}));
+                const pos = new THREE.Vector3(); b.getWorldPosition(pos);
+                const dir = new THREE.Vector3(0,1,0).applyQuaternion(b.getWorldQuaternion(new THREE.Quaternion()));
+                shell.position.copy(pos);
+                projectiles.push({m:shell, v:dir.multiplyScalar(22), g:0.025});
+                scene.add(shell);
+            }));
+        }
+
+        // --- 5. CONTROLS ---
+        const bind = (id, obj) => {
+            const el = document.getElementById(id), kn = el.querySelector('.knob');
+            const fn = (e) => {
+                const t = e.touches ? e.touches[0] : e, r = el.getBoundingClientRect();
+                obj.x = (t.clientX - (r.left + r.width/2)) / (r.width/2);
+                obj.y = (t.clientY - (r.top + r.height/2)) / (r.height/2);
+                kn.style.left = (50 + Math.max(-1,Math.min(1,obj.x))*40)+'%';
+                kn.style.top = (50 + Math.max(-1,Math.min(1,obj.y))*40)+'%';
+            };
+            el.addEventListener('pointerdown', fn);
+            el.addEventListener('pointermove', e => e.buttons && fn(e));
+            el.addEventListener('pointerup', () => { obj.x=0; obj.y=0; kn.style.left='50%'; kn.style.top='50%'; });
+        };
+        bind('stick-move', mv); bind('stick-aim', am);
+        document.getElementById('fire-btn').addEventListener('pointerdown', fire);
+
+        // --- 6. MAIN LOOP ---
+        function update() {
+            requestAnimationFrame(update);
+            speed = THREE.MathUtils.lerp(speed, -mv.y * MAX_SPEED, ACCEL);
+            player.rotation.y -= mv.x * TURN * (Math.abs(speed/MAX_SPEED) + 0.15);
+            player.translateZ(speed);
+
+            projectiles.forEach((p, i) => {
+                p.m.position.add(p.v); p.v.y -= p.g;
+                if(p.m.position.y < 0) {
+                    scene.remove(p.m); projectiles.splice(i,1);
+                } else {
+                    enemies.forEach(en => {
+                        if(!en.sinking && p.m.position.distanceTo(en.mesh.position) < 80) {
+                            en.sinking = true; score++;
+                            document.getElementById('score').innerText = `TARGETS SUNK: ${score}`;
+                        }
+                    });
+                }
+            });
+
+            turrets.forEach(t => {
+                t.group.rotation.y = THREE.MathUtils.lerp(t.group.rotation.y, -am.x * Math.PI, 0.04);
+                t.pivot.rotation.x = THREE.MathUtils.lerp(t.pivot.rotation.x, am.y * 0.6 - 0.1, 0.04);
+            });
+
+            // Cinematic Lagged Camera
+            camera.position.lerp(new THREE.Vector3(0, 500, -1000).applyMatrix4(player.matrixWorld), 0.015);
+            camera.lookAt(player.position);
+
+            enemies.forEach((en, idx) => {
+                if(en.sinking) {
+                    en.mesh.position.y -= 0.1; en.mesh.rotation.z += 0.001; en.timer++;
+                    if(en.timer > 300) { scene.remove(en.mesh); enemies.splice(idx,1); }
+                }
+            });
+
+            document.getElementById('speed').innerText = `KNOTS: ${Math.abs(Math.floor((speed / MAX_SPEED) * 32))}`;
+            renderer.render(scene, camera);
+        }
+        update();
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
