@@ -4,26 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>USS Montana: Full Broadside</title>
+    <title>Montana Strike: Debugged</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; touch-action: none; }
-        #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; text-shadow: 1px 1px 2px black; }
-        #speed { font-size: 18px; font-weight: bold; color: #00ffcc; }
-        .ctrl { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.2); border: 2px solid white; }
+        #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; text-shadow: 1px 1px 2px black; z-index: 10; }
+        .ctrl { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.2); border: 2px solid white; z-index: 20; }
         #touch-zone { bottom: 30px; left: 30px; width: 100px; height: 100px; }
         #knob { position: absolute; top: 30px; left: 30px; width: 40px; height: 40px; background: white; border-radius: 50%; }
-        #fire-btn { bottom: 40px; right: 40px; width: 90px; height: 90px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; background: rgba(255,0,0,0.6); pointer-events: auto; cursor: pointer; }
+        #fire-btn { bottom: 40px; right: 40px; width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; background: rgba(255,0,0,0.6); cursor: pointer; }
     </style>
 </head>
 <body>
     <div id="ui">
-        <div>USS MONTANA (BB-67)</div>
+        <div style="font-size: 20px;">USS MONTANA</div>
         <div id="speed">0 KNOTS</div>
-        <div id="score">Targets Neutralized: 0</div>
+        <div id="score">Targets Sunk: 0</div>
     </div>
     
     <div id="touch-zone" class="ctrl"><div id="knob"></div></div>
-    <div id="fire-btn" class="ctrl">FIRE SALVO</div>
+    <div id="fire-btn" class="ctrl">FIRE</div>
 
     <script type="importmap">
         { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
@@ -32,7 +31,6 @@
     <script type="module">
         import * as THREE from 'three';
 
-        // --- SCENE & LIGHTING ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87CEEB); 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
@@ -44,37 +42,32 @@
         sun.position.set(100, 100, 50);
         scene.add(sun, new THREE.AmbientLight(0xffffff, 0.5));
 
-        // --- SHIP STRUCTURE ---
+        // --- SHIP ---
         const shipGroup = new THREE.Group();
         scene.add(shipGroup);
-
         const hull = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 14), new THREE.MeshStandardMaterial({ color: 0x666666 }));
         shipGroup.add(hull);
 
         const turrets = [];
         const turretZ = [5, 2.5, -2.5, -5];
         turretZ.forEach(z => {
-            const turretPivot = new THREE.Group(); // Handles Left/Right
-            turretPivot.position.set(0, 1.2, z);
-            
+            const tPivot = new THREE.Group();
+            tPivot.position.set(0, 1.2, z);
             const base = new THREE.Mesh(new THREE.BoxGeometry(2, 0.8, 2), new THREE.MeshStandardMaterial({ color: 0x444444 }));
-            turretPivot.add(base);
-
-            const gunPivot = new THREE.Group(); // Handles Up/Down
-            gunPivot.position.set(0, 0.2, 0.5);
-            turretPivot.add(gunPivot);
-
+            tPivot.add(base);
+            const gPivot = new THREE.Group();
+            gPivot.position.set(0, 0.2, 0);
+            tPivot.add(gPivot);
             const barrels = [];
             for(let i=-1; i<=1; i++) {
                 const g = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 3.5), new THREE.MeshStandardMaterial({ color: 0x222222 }));
                 g.rotation.x = Math.PI/2;
-                g.position.set(i*0.5, 0, 1.5);
-                gunPivot.add(g);
+                g.position.set(i*0.5, 0, 1.7); // Tip of the barrel
+                gPivot.add(g);
                 barrels.push(g);
             }
-
-            shipGroup.add(turretPivot);
-            turrets.push({ pivot: turretPivot, guns: gunPivot, barrels: barrels });
+            shipGroup.add(tPivot);
+            turrets.push({ pivot: tPivot, guns: gPivot, barrels: barrels });
         });
 
         // --- OCEAN & ENEMIES ---
@@ -86,97 +79,107 @@
         const enemies = [];
         function spawnEnemy() {
             const eGroup = new THREE.Group();
-            const eMesh = new THREE.Mesh(new THREE.BoxGeometry(5, 3, 12), new THREE.MeshStandardMaterial({ color: 0x992222 }));
+            const eMesh = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 12), new THREE.MeshStandardMaterial({ color: 0x992222 }));
             eGroup.add(eMesh);
-            eGroup.position.set((Math.random()-0.5)*300, 0.5, (Math.random()-0.5)*300);
+            eGroup.position.set((Math.random()-0.5)*400, 0.5, (Math.random()-0.5)*400);
             scene.add(eGroup);
             enemies.push({ group: eGroup, mesh: eMesh, sinking: false, timer: 0 });
         }
-        for(let i=0; i<8; i++) spawnEnemy();
+        for(let i=0; i<10; i++) spawnEnemy();
 
-        // --- PROJECTILE & EXPLOSION ---
+        // --- FIRING SYSTEM ---
         const projectiles = [];
         function fire() {
+            // CRITICAL: Force scene update to get correct positions
+            scene.updateMatrixWorld(true);
+
             turrets.forEach(t => {
                 t.barrels.forEach(barrel => {
-                    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.15), new THREE.MeshBasicMaterial({ color: 0xffaa00 }));
-                    const worldPos = new THREE.Vector3();
-                    barrel.getWorldPosition(worldPos);
-                    shell.position.copy(worldPos);
+                    const shell = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.25), 
+                        new THREE.MeshBasicMaterial({ color: 0xffcc00 })
+                    );
+                    
+                    // Get world position of the barrel tip
+                    const tipPos = new THREE.Vector3();
+                    barrel.getWorldPosition(tipPos);
+                    shell.position.copy(tipPos);
 
-                    const vel = new THREE.Vector3(0, 0, 2); // Velocity
+                    // Get direction based on barrel's world orientation
+                    const direction = new THREE.Vector3(0, 0, 1); // Local forward
                     const worldQuat = new THREE.Quaternion();
                     barrel.getWorldQuaternion(worldQuat);
-                    vel.applyQuaternion(worldQuat);
+                    direction.applyQuaternion(worldQuat);
 
-                    projectiles.push({ mesh: shell, vel: vel });
+                    projectiles.push({ mesh: shell, vel: direction.multiplyScalar(2.5) });
                     scene.add(shell);
                 });
             });
         }
 
-        // --- INPUTS ---
+        // --- CONTROLS ---
         let input = { fwd: 0, turn: 0 };
         const keys = {};
-        window.onkeydown = (e) => { keys[e.key.toLowerCase()] = true; if(e.key === ' ') fire(); };
+        window.onkeydown = (e) => { keys[e.key.toLowerCase()] = true; if(e.key===' ') fire(); };
         window.onkeyup = (e) => keys[e.key.toLowerCase()] = false;
-        document.getElementById('fire-btn').addEventListener('pointerdown', fire);
+        
+        // Touch/Click Firing
+        const fireBtn = document.getElementById('fire-btn');
+        fireBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); fire(); });
 
         const zone = document.getElementById('touch-zone');
-        zone.ontouchmove = (e) => {
+        zone.addEventListener('touchmove', (e) => {
             const r = zone.getBoundingClientRect();
             input.turn = (e.touches[0].clientX - (r.left + r.width/2)) / (r.width/2);
             input.fwd = ((r.top + r.height/2) - e.touches[0].clientY) / (r.height/2);
-        };
-        zone.ontouchend = () => input = { fwd: 0, turn: 0 };
+        }, {passive: false});
+        zone.addEventListener('touchend', () => input = { fwd: 0, turn: 0 });
 
-        // --- MAIN LOOP ---
+        // --- LOOP ---
         let score = 0; let speed = 0;
-
         function animate() {
             requestAnimationFrame(animate);
 
-            // Ship Movement
+            // Ship movement
             const move = keys['w'] ? 1 : (keys['s'] ? -1 : input.fwd);
             const rot = keys['a'] ? -1 : (keys['d'] ? 1 : input.turn);
-            speed = THREE.MathUtils.lerp(speed, move * 0.4, 0.02);
-            shipGroup.rotation.y -= rot * 0.015 * (Math.abs(speed)/0.4);
-            shipGroup.position.x += Math.sin(shipGroup.rotation.y) * speed;
-            shipGroup.position.z += Math.cos(shipGroup.rotation.y) * speed;
+            speed = THREE.MathUtils.lerp(speed, move * 0.45, 0.02);
+            shipGroup.rotation.y -= rot * 0.015 * (Math.abs(speed)/0.45);
+            shipGroup.position.add(new THREE.Vector3(Math.sin(shipGroup.rotation.y), 0, Math.cos(shipGroup.rotation.y)).multiplyScalar(speed));
 
-            // Turret & Gun Movement (Aiming at Horizon)
-            turrets.forEach(t => {
-                t.pivot.rotation.y = Math.sin(Date.now() * 0.001) * 0.5; // Auto-sweep L/R
-                t.guns.rotation.x = -0.1 - Math.abs(Math.sin(Date.now() * 0.0005) * 0.3); // Auto-elevate
+            // Gun Animation (Aiming)
+            const time = Date.now() * 0.001;
+            turrets.forEach((t, i) => {
+                t.pivot.rotation.y = Math.sin(time + i) * 0.6; // Turret turns
+                t.guns.rotation.x = -0.2 - Math.abs(Math.sin(time * 0.5) * 0.3); // Guns elevate
             });
 
-            // Shell Physics
+            // Projectiles
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const p = projectiles[i];
                 p.mesh.position.add(p.vel);
-                p.vel.y -= 0.015; // Gravity
+                p.vel.y -= 0.02; // Gravity
 
-                if (p.mesh.position.y < -0.5) {
+                if (p.mesh.position.y < -1) {
                     scene.remove(p.mesh); projectiles.splice(i, 1); continue;
                 }
 
                 enemies.forEach(en => {
-                    if (!en.sinking && p.mesh.position.distanceTo(en.group.position) < 5) {
+                    if (!en.sinking && p.mesh.position.distanceTo(en.group.position) < 6) {
                         en.sinking = true;
-                        en.mesh.material.color.set(0xff0000); // Explosion flash
-                        scene.remove(p.mesh);
-                        projectiles.splice(i, 1);
+                        en.mesh.material.color.set(0xff0000); 
+                        scene.remove(p.mesh); projectiles.splice(i, 1);
                         score++;
-                        document.getElementById('score').innerText = "Targets Neutralized: " + score;
+                        document.getElementById('score').innerText = "Targets Sunk: " + score;
                     }
                 });
             }
 
-            // Enemy Sinking Logic
+            // Sinking enemies
             enemies.forEach((en, idx) => {
                 if (en.sinking) {
-                    en.group.position.y -= 0.02;
-                    en.group.rotation.z += 0.01;
+                    en.group.position.y -= 0.05;
+                    en.group.rotation.x += 0.02;
                     en.timer++;
                     if (en.timer > 100) {
                         scene.remove(en.group);
@@ -186,8 +189,7 @@
                 }
             });
 
-            // Camera follow
-            const camPos = new THREE.Vector3(0, 12, -28).applyMatrix4(shipGroup.matrixWorld);
+            const camPos = new THREE.Vector3(0, 15, -35).applyMatrix4(shipGroup.matrixWorld);
             camera.position.lerp(camPos, 0.1);
             camera.lookAt(shipGroup.position);
 
@@ -195,6 +197,12 @@
             renderer.render(scene, camera);
         }
         animate();
+
+        window.onresize = () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        };
     </script>
 </body>
 </html>
