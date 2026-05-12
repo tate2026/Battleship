@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>USS Montana: Advanced Hull Sections</title>
+    <title>USS Montana: Custom Deck Contour</title>
     <style>
         body { margin: 0; overflow: hidden; background: #01579b; font-family: 'Segoe UI', sans-serif; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); z-index: 100; }
@@ -50,43 +50,48 @@
         sun.position.set(1000, 2000, 1000);
         scene.add(sun, new THREE.AmbientLight(0xffffff, 0.8));
 
-        // --- SECTIONED HULL CONSTRUCTOR ---
         function createSectionedShip(maxW, h, totalL, hullCol, deckCol, isPlayer = false) {
             const group = new THREE.Group();
             
-            // 5 Sections defining the hull width at different points along the length
-            // Format: [z-position (relative to center), width]
             const sections = [
-                { z: totalL/2,  w: 0.1 },   // Bow (Front Tip)
-                { z: totalL/4,  w: maxW },  // Forward Taper
-                { z: 0,         w: maxW },  // Midsection
-                { z: -totalL/4, w: maxW * 0.85 }, // Aft Taper
-                { z: -totalL/2, w: maxW * 0.4 }  // Stern (Rear Tip)
+                { z: totalL/2,  w: 0.1 },   
+                { z: totalL/4,  w: maxW },  
+                { z: 0,         w: maxW },  
+                { z: -totalL/4, w: maxW * 0.85 }, 
+                { z: -totalL/2, w: maxW * 0.4 }  
             ];
 
-            const shape = new THREE.Shape();
-            shape.moveTo(0, sections[0].z);
-            sections.forEach(s => shape.lineTo(s.w/2, s.z));
-            sections.slice().reverse().forEach(s => shape.lineTo(-s.w/2, s.z));
-            shape.lineTo(0, sections[0].z);
+            // 1. Create Hull Geometry
+            const hullShape = new THREE.Shape();
+            hullShape.moveTo(0, sections[0].z);
+            sections.forEach(s => hullShape.lineTo(s.w/2, s.z));
+            sections.slice().reverse().forEach(s => hullShape.lineTo(-s.w/2, s.z));
+            hullShape.lineTo(0, sections[0].z);
 
-            const hullGeom = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: true, bevelSize: 1.5 });
+            const hullGeom = new THREE.ExtrudeGeometry(hullShape, { depth: h, bevelEnabled: true, bevelSize: 1.5 });
             const hull = new THREE.Mesh(hullGeom, new THREE.MeshStandardMaterial({ color: hullCol }));
             hull.rotation.x = Math.PI/2;
             hull.position.y = h/2;
             group.add(hull);
 
-            const deck = new THREE.Mesh(new THREE.PlaneGeometry(maxW, totalL), new THREE.MeshStandardMaterial({ color: deckCol }));
+            // 2. Create Deck Geometry (Follows the same points, slightly inset)
+            const deckShape = new THREE.Shape();
+            const inset = 0.5; // Slightly inside the hull line
+            deckShape.moveTo(0, sections[0].z - inset);
+            sections.forEach(s => deckShape.lineTo((s.w/2) - inset, s.z));
+            sections.slice().reverse().forEach(s => deckShape.lineTo(-(s.w/2) + inset, s.z));
+            deckShape.lineTo(0, sections[0].z - inset);
+
+            const deckGeom = new THREE.ShapeGeometry(deckShape);
+            const deck = new THREE.Mesh(deckGeom, new THREE.MeshStandardMaterial({ color: deckCol }));
             deck.rotation.x = -Math.PI/2;
-            deck.position.y = h + 0.15;
+            deck.position.y = h + 0.15; // Sits on top of the hull
             group.add(deck);
 
             if(isPlayer) {
-                // Bridge
                 const tower = new THREE.Mesh(new THREE.BoxGeometry(maxW*0.3, h*2, 30), new THREE.MeshStandardMaterial({color: 0x78909c}));
                 tower.position.set(0, h+h, 0);
                 group.add(tower);
-                // Smokestacks
                 for(let z of [-25, 15]) {
                     const stack = new THREE.Mesh(new THREE.CylinderGeometry(maxW*0.1, maxW*0.12, 18), new THREE.MeshStandardMaterial({color: 0x222222}));
                     stack.position.set(0, h+10, z);
@@ -103,7 +108,6 @@
         const ship = createSectionedShip(28, 8, 260, 0x455a64, 0x8d6e63, true);
         scene.add(ship);
 
-        // Turrets
         const turrets = [];
         [-100, -70, 60, 90].forEach(z => {
             const t = new THREE.Group();
@@ -120,7 +124,7 @@
             turrets.push({ group: t, pivot: pivot, barrels: barrels });
         });
 
-        const ocean = new THREE.Mesh(new THREE.PlaneGeometry(100000, 100000), new THREE.MeshStandardMaterial({ color: 0x01579b, roughness: 0.2 }));
+        const ocean = new THREE.Mesh(new THREE.PlaneGeometry(120000, 120000), new THREE.MeshStandardMaterial({ color: 0x01579b, roughness: 0.2 }));
         ocean.rotation.x = -Math.PI / 2;
         ocean.position.y = -0.1;
         scene.add(ocean);
@@ -147,7 +151,7 @@
 
         const enemies = Array(12).fill(0).map(() => {
             const e = createSectionedShip(14, 6, 80, 0x37474f, 0x5d4037, false);
-            const dist = 2000 + Math.random() * 4000;
+            const dist = 2000 + Math.random() * 4500;
             const ang = Math.random() * Math.PI * 2;
             e.position.set(Math.cos(ang)*dist, 0, Math.sin(ang)*dist);
             scene.add(e);
