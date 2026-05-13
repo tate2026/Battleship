@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>USS Montana: Precision Systems</title>
+    <title>USS Montana: Navigational Fix</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000b1a; font-family: 'Courier New', monospace; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: #00ff00; pointer-events: none; z-index: 100; text-shadow: 2px 2px 2px #000; }
@@ -19,11 +19,14 @@
         }
         @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .radar-blip { position: absolute; width: 6px; height: 6px; background: #ff0000; border-radius: 50%; transform: translate(-50%, -50%); }
+        
+        /* FIXED PLAYER BLIP: Now represents the ship's forward heading */
         #player-blip { 
             position: absolute; top: 50%; left: 50%; width: 12px; height: 12px; 
             background: #00ffff; clip-path: polygon(50% 0%, 0% 100%, 100% 100%); 
             transform: translate(-50%, -50%); z-index: 10; 
         }
+
         .stick-container { position: absolute; border-radius: 50%; background: rgba(0,40,60,0.5); border: 2px solid rgba(0,255,0,0.2); z-index: 200; backdrop-filter: blur(8px); }
         .knob { position: absolute; width: 40px; height: 40px; background: #00ff00; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 10px #00ff00; }
         #stick-move { bottom: 30px; left: 30px; width: 110px; height: 110px; }
@@ -196,22 +199,21 @@
             player.rotation.y -= mv.x * 0.005;
             player.translateZ(shipSpeedVal);
 
-            // Update Velocity UI (KTS = Speed scaled for realism)
             const kts = Math.abs(Math.floor(shipSpeedVal * 12));
             document.getElementById('speed-display').innerText = `VELOCITY: ${kts} KTS`;
 
-            // RADAR LOGIC: Rotational Correction
-            // Center is always player. Top is always player's forward.
+            // Since the radar logic rotates the world RELATIVE to the player,
+            // the triangle (player blip) should always point straight up (0 degrees).
+            document.getElementById('player-blip').style.transform = `translate(-50%, -50%) rotate(0deg)`;
+
             enemies.forEach(e => {
                 if(e.sinking) { e.mesh.position.y -= 0.5; e.blip.style.display='none'; return; }
-                
-                // Vector from player to enemy
                 const dx = e.mesh.position.x - player.position.x;
                 const dz = e.mesh.position.z - player.position.z;
                 const dist = Math.sqrt(dx*dx + dz*dz);
                 
                 if(dist < 15000) {
-                    // Rotate coordinates to be relative to ship heading
+                    // Coordinate rotation: keeps player "forward" as the top of the circle
                     const relAngle = Math.atan2(dx, dz) - player.rotation.y;
                     const rx = Math.sin(relAngle) * (dist / 15000) * 50;
                     const ry = Math.cos(relAngle) * (dist / 15000) * 50;
@@ -219,12 +221,9 @@
                     e.blip.style.display = 'block';
                     e.blip.style.left = (50 + rx) + '%';
                     e.blip.style.top = (50 - ry) + '%';
-                } else {
-                    e.blip.style.display = 'none';
-                }
+                } else e.blip.style.display = 'none';
             });
 
-            // FX & Shells
             for(let i=activeParticles.length-1; i>=0; i--) {
                 const p = activeParticles[i]; p.mesh.position.add(p.velocity); p.life -= p.decay;
                 p.mesh.material.opacity = p.life; if(p.life <= 0) { scene.remove(p.mesh); activeParticles.splice(i, 1); }
