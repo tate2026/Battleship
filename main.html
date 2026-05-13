@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>USS Montana: Directional Radar</title>
+    <title>USS Montana: Combat FX Restored</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000b1a; font-family: 'Courier New', monospace; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: #00ff00; pointer-events: none; z-index: 100; text-shadow: 2px 2px 2px #000; }
@@ -19,15 +19,7 @@
         }
         @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .radar-blip { position: absolute; width: 6px; height: 6px; background: #ff0000; border-radius: 50%; transform: translate(-50%, -50%); }
-        
-        /* PLAYER BLIP: Now rotates based on ship heading */
-        #player-blip { 
-            position: absolute; top: 50%; left: 50%; width: 12px; height: 12px; 
-            background: #00ffff; clip-path: polygon(50% 0%, 0% 100%, 100% 100%); 
-            transform: translate(-50%, -50%); 
-            z-index: 10;
-        }
-
+        #player-blip { position: absolute; top: 50%; left: 50%; width: 12px; height: 12px; background: #00ffff; clip-path: polygon(50% 0%, 0% 100%, 100% 100%); transform: translate(-50%, -50%); z-index: 10; }
         .stick-container { position: absolute; border-radius: 50%; background: rgba(0,40,60,0.5); border: 2px solid rgba(0,255,0,0.2); z-index: 200; backdrop-filter: blur(8px); }
         .knob { position: absolute; width: 40px; height: 40px; background: #00ff00; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 10px #00ff00; }
         #stick-move { bottom: 30px; left: 30px; width: 110px; height: 110px; }
@@ -64,7 +56,6 @@
     <script type="module">
         import * as THREE from 'three';
 
-        // --- CORE SETUP ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x64b5f6); 
         scene.fog = new THREE.Fog(0x64b5f6, 1000, 30000); 
@@ -82,7 +73,7 @@
         const matGun = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.95 });
         const matWhite = new THREE.MeshStandardMaterial({ color: 0xffffff });
 
-        // --- PLAYER SHIP BUILDER ---
+        // --- SHIP BUILDER ---
         class MontanaBuilder {
             static build() {
                 const group = new THREE.Group();
@@ -135,9 +126,20 @@
             return { group: base, pivot, barrels: guns };
         });
 
-        // --- ENVIRONMENT ---
         const ocean = new THREE.Mesh(new THREE.PlaneGeometry(200000, 200000), new THREE.MeshStandardMaterial({ color: 0x01579b }));
         ocean.rotation.x = -Math.PI/2; scene.add(ocean);
+
+        // --- FX SYSTEM ---
+        const activeParticles = [];
+        function createExplosion(pos, color, qty, size, speed) {
+            for(let i=0; i<qty; i++) {
+                const p = new THREE.Mesh(new THREE.SphereGeometry(size), new THREE.MeshBasicMaterial({ color: color, transparent: true }));
+                p.position.copy(pos);
+                const vel = new THREE.Vector3((Math.random()-0.5)*speed, Math.random()*speed, (Math.random()-0.5)*speed);
+                scene.add(p);
+                activeParticles.push({ mesh: p, velocity: vel, life: 1.0, decay: 0.02 + Math.random()*0.02 });
+            }
+        }
 
         const enemies = [];
         const blipContainer = document.getElementById('blip-container');
@@ -155,7 +157,6 @@
             enemies.push({ mesh: eGroup, sinking: false, hp: 5, blip: blip });
         }
 
-        // --- LOGIC ---
         let mv = {x:0, y:0}, am = {x:0, y:0}, speed = 0, score = 0;
         const shells = [];
 
@@ -182,6 +183,8 @@
                 s.position.copy(pos);
                 shells.push({ m: s, v: new THREE.Vector3(0,1,0).applyQuaternion(quat).multiplyScalar(75), g: 0.04 });
                 scene.add(s);
+                // Muzzle Flash Effect
+                createExplosion(pos, 0xffaa00, 5, 2, 8);
             }));
         });
 
@@ -191,13 +194,15 @@
             player.rotation.y -= mv.x * 0.005;
             player.translateZ(speed);
 
-            // RADAR UPDATE
-            // Rotates the player's blip (triangle) to match ship rotation
-            // We use -player.rotation.y because DOM rotation and 3D rotation directions often invert
             document.getElementById('player-blip').style.transform = `translate(-50%, -50%) rotate(${-player.rotation.y}rad)`;
 
             enemies.forEach(e => {
-                if(e.sinking) { e.mesh.position.y -= 0.5; e.blip.style.display='none'; return; }
+                if(e.sinking) { 
+                    e.mesh.position.y -= 0.5; 
+                    e.blip.style.display='none'; 
+                    if(Math.random() > 0.8) createExplosion(e.mesh.position, 0x444444, 1, 10, 2); // Smoke
+                    return; 
+                }
                 const dx = e.mesh.position.x - player.position.x, dz = e.mesh.position.z - player.position.z;
                 if(Math.sqrt(dx*dx + dz*dz) < 15000) {
                     e.blip.style.display = 'block';
@@ -206,14 +211,30 @@
                 } else e.blip.style.display = 'none';
             });
 
-            // Shells
+            // FX Update
+            for(let i=activeParticles.length-1; i>=0; i--) {
+                const p = activeParticles[i];
+                p.mesh.position.add(p.velocity); p.life -= p.decay;
+                p.mesh.material.opacity = p.life;
+                if(p.life <= 0) { scene.remove(p.mesh); activeParticles.splice(i, 1); }
+            }
+
             for(let i=shells.length-1; i>=0; i--) {
                 const s = shells[i]; s.m.position.add(s.v); s.v.y -= s.g;
-                if(s.m.position.y < 0) { scene.remove(s.m); shells.splice(i,1); }
+                if(s.m.position.y < 0) { 
+                    createExplosion(s.m.position, 0xffffff, 8, 3, 5); // Water Splash
+                    scene.remove(s.m); shells.splice(i,1); 
+                }
                 else enemies.forEach(en => {
                     if(!en.sinking && s.m.position.distanceTo(en.mesh.position) < 120) {
-                        en.hp--; scene.remove(s.m); shells.splice(i,1);
-                        if(en.hp <= 0) { en.sinking=true; score++; document.getElementById('score').innerText = `HOSTILES SUNK: ${score}`; }
+                        en.hp--; 
+                        createExplosion(s.m.position, 0xff4400, 15, 5, 12); // Impact
+                        scene.remove(s.m); shells.splice(i,1);
+                        if(en.hp <= 0) { 
+                            en.sinking=true; score++; 
+                            document.getElementById('score').innerText = `HOSTILES SUNK: ${score}`; 
+                            createExplosion(en.mesh.position, 0xff0000, 50, 15, 20); // Massive Death Explosion
+                        }
                     }
                 });
             }
@@ -223,11 +244,9 @@
                 t.pivot.rotation.x = THREE.MathUtils.lerp(t.pivot.rotation.x, am.y * 0.7, 0.1);
             });
 
-            // Stabilized Camera
             const camPos = new THREE.Vector3(0, 50, -250).applyMatrix4(player.matrixWorld);
             camera.position.lerp(camPos, 0.2); 
-            const lookAtTarget = new THREE.Vector3(0, 20, 400).applyMatrix4(player.matrixWorld);
-            camera.lookAt(lookAtTarget);
+            camera.lookAt(new THREE.Vector3(0, 20, 400).applyMatrix4(player.matrixWorld));
 
             renderer.render(scene, camera);
         }
