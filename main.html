@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>USS Montana: Ultra-Wide Edition</title>
+    <title>USS Montana: High-Angle Combat</title>
     <style>
         body { 
             margin: 0; 
@@ -94,10 +94,10 @@
 
         // --- WORLD SETUP ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x64b5f6); // Brighter Sky
+        scene.background = new THREE.Color(0x64b5f6); 
         scene.fog = new THREE.Fog(0x64b5f6, 1000, 30000); 
         
-        // FOV 120: EXTREME WIDE ANGLE
+        // FOV 120
         const camera = new THREE.PerspectiveCamera(120, window.innerWidth / window.innerHeight, 1, 100000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setPixelRatio(window.devicePixelRatio);
@@ -213,13 +213,9 @@
             return { group: baseGroup, pivot: elevationPivot, barrels: barrelArray };
         });
 
-        // OCEAN - CHANGED TO BLUE
+        // OCEAN - BLUE
         const oceanGeom = new THREE.PlaneGeometry(150000, 150000);
-        const oceanMat = new THREE.MeshStandardMaterial({ 
-            color: 0x01579b, // Ocean Blue
-            roughness: 0.1,
-            metalness: 0.2
-        });
+        const oceanMat = new THREE.MeshStandardMaterial({ color: 0x01579b, roughness: 0.1, metalness: 0.2 });
         const ocean = new THREE.Mesh(oceanGeom, oceanMat);
         ocean.rotation.x = -Math.PI / 2;
         scene.add(ocean);
@@ -349,10 +345,10 @@
                 turret.pivot.rotation.x = THREE.MathUtils.lerp(turret.pivot.rotation.x, inputAim.y * 0.75, 0.1);
             });
 
-            // CAMERA UPDATED: Much closer Z (-320) and Lower Y (22) for 120 FOV
-            const cameraOffset = new THREE.Vector3(0, 22, -320).applyMatrix4(player.matrixWorld);
+            // CAMERA UPDATED: Closer Z (-280) and Higher Y (45) above sea level
+            const cameraOffset = new THREE.Vector3(0, 45, -280).applyMatrix4(player.matrixWorld);
             camera.position.lerp(cameraOffset, 0.12);
-            camera.lookAt(player.position.clone().add(new THREE.Vector3(0, 10, 200)));
+            camera.lookAt(player.position.clone().add(new THREE.Vector3(0, 20, 200)));
 
             enemies.forEach(e => { if(e.sinking) { e.mesh.position.y -= 0.25; e.mesh.rotation.z += 0.008; } });
             document.getElementById('speed').innerText = `VELOCITY: ${Math.abs(Math.floor((shipSpeed / 2.8) * 42))} KTS`;
