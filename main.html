@@ -91,12 +91,16 @@
                 lvl2.position.set(0, 38, 5); group.add(lvl2);
                 const tower = new THREE.Mesh(new THREE.BoxGeometry(10, 8, 15), matGun);
                 tower.position.set(0, 48, 15); group.add(tower);
+                
+                // Masts/Funnels
                 [-35, -75].forEach(z => {
                     const s = new THREE.Mesh(new THREE.CylinderGeometry(6, 6.5, 35), matGun);
                     s.position.set(0, 35, z); group.add(s);
                     const g = new THREE.Mesh(new THREE.TorusGeometry(6.5, 0.6, 8, 16), matSteel);
                     g.rotation.x = Math.PI/2; g.position.set(0, 52, z); group.add(g);
                 });
+
+                // Secondary Armament
                 for (let s of [-1, 1]) {
                     [-110, -80, -50, -20, 10, 40, 70, 100].forEach(z => {
                         const t = new THREE.Mesh(new THREE.BoxGeometry(6, 6, 10), matSteel);
@@ -105,27 +109,34 @@
                         g.rotation.x = Math.PI/2; g.position.set(s*17, 20, z+7); group.add(g);
                     });
                 }
+
+                // RESTORED LIFE BOATS
+                for (let s of [-1, 1]) {
+                    [-120, -140, -160].forEach(z => {
+                        const b = new THREE.Mesh(new THREE.CapsuleGeometry(3, 10, 4), matWhite);
+                        b.rotation.x = Math.PI/2; 
+                        b.position.set(s*14, 18, z); 
+                        group.add(b);
+                    });
+                }
+                
                 return group;
             }
         }
 
-        // HEAVY CRUISER BUILDER
         class CruiserBuilder {
             static build() {
                 const group = new THREE.Group();
-                // Multi-section hull
                 const mid = new THREE.Mesh(new THREE.BoxGeometry(30, 20, 100), matDarkSteel);
                 mid.position.y = 10; group.add(mid);
                 const bow = new THREE.Mesh(new THREE.BoxGeometry(18, 20, 80), matDarkSteel);
                 bow.position.set(0, 10, 90); group.add(bow);
                 const stern = new THREE.Mesh(new THREE.BoxGeometry(22, 20, 60), matDarkSteel);
                 stern.position.set(0, 10, -80); group.add(stern);
-                // Bridge
                 const bridge = new THREE.Mesh(new THREE.BoxGeometry(12, 25, 20), matDarkSteel);
                 bridge.position.set(0, 30, 10); group.add(bridge);
                 const mast = new THREE.Mesh(new THREE.CylinderGeometry(1, 2, 40), matGun);
                 mast.position.set(0, 50, 10); group.add(mast);
-                // Turrets
                 [60, -50].forEach(z => {
                     const tBase = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 5), matGun);
                     tBase.position.set(0, 22, z); group.add(tBase);
@@ -167,7 +178,6 @@
             }
         }
 
-        // WATER TRAIL LOGIC
         function createWake() {
             if (Math.abs(shipSpeedVal) < 0.1) return;
             const p = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 }));
@@ -228,7 +238,6 @@
             player.rotation.y -= mv.x * 0.005;
             player.translateZ(shipSpeedVal);
 
-            // Emit wake trails based on speed
             if (Math.random() < Math.abs(shipSpeedVal)/3) createWake();
 
             const kts = Math.abs(Math.floor(shipSpeedVal * 12));
