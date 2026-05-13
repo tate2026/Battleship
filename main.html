@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>USS Montana: Radar Alignment</title>
+    <title>USS Montana: Naval Engagement</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000b1a; font-family: 'Courier New', monospace; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: #00ff00; pointer-events: none; z-index: 100; text-shadow: 2px 2px 2px #000; }
@@ -76,6 +76,7 @@
         const matDeck = new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 0.9 });
         const matGun = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.95 });
         const matWhite = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        const matDarkSteel = new THREE.MeshStandardMaterial({ color: 0x263238, metalness: 0.7 });
 
         class MontanaBuilder {
             static build() {
@@ -104,12 +105,35 @@
                         g.rotation.x = Math.PI/2; g.position.set(s*17, 20, z+7); group.add(g);
                     });
                 }
-                for (let s of [-1, 1]) {
-                    [-120, -140, -160].forEach(z => {
-                        const b = new THREE.Mesh(new THREE.CapsuleGeometry(3, 10, 4), matWhite);
-                        b.rotation.x = Math.PI/2; b.position.set(s*14, 18, z); group.add(b);
-                    });
-                }
+                return group;
+            }
+        }
+
+        // HEAVY CRUISER BUILDER
+        class CruiserBuilder {
+            static build() {
+                const group = new THREE.Group();
+                // Multi-section hull
+                const mid = new THREE.Mesh(new THREE.BoxGeometry(30, 20, 100), matDarkSteel);
+                mid.position.y = 10; group.add(mid);
+                const bow = new THREE.Mesh(new THREE.BoxGeometry(18, 20, 80), matDarkSteel);
+                bow.position.set(0, 10, 90); group.add(bow);
+                const stern = new THREE.Mesh(new THREE.BoxGeometry(22, 20, 60), matDarkSteel);
+                stern.position.set(0, 10, -80); group.add(stern);
+                // Bridge
+                const bridge = new THREE.Mesh(new THREE.BoxGeometry(12, 25, 20), matDarkSteel);
+                bridge.position.set(0, 30, 10); group.add(bridge);
+                const mast = new THREE.Mesh(new THREE.CylinderGeometry(1, 2, 40), matGun);
+                mast.position.set(0, 50, 10); group.add(mast);
+                // Turrets
+                [60, -50].forEach(z => {
+                    const tBase = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 5), matGun);
+                    tBase.position.set(0, 22, z); group.add(tBase);
+                    const tGun = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 25), matGun);
+                    tGun.position.set(4, 25, z+10); group.add(tGun);
+                    const tGun2 = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 25), matGun);
+                    tGun2.position.set(-4, 25, z+10); group.add(tGun2);
+                });
                 return group;
             }
         }
@@ -143,16 +167,24 @@
             }
         }
 
+        // WATER TRAIL LOGIC
+        function createWake() {
+            if (Math.abs(shipSpeedVal) < 0.1) return;
+            const p = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 }));
+            p.rotation.x = -Math.PI/2;
+            const offset = new THREE.Vector3((Math.random()-0.5)*30, 0.5, -170).applyQuaternion(player.quaternion);
+            p.position.copy(player.position).add(offset);
+            scene.add(p);
+            activeParticles.push({ mesh: p, velocity: new THREE.Vector3(0,0,0), life: 0.6, decay: 0.01, isWake: true });
+        }
+
         const enemies = [];
         const blipContainer = document.getElementById('blip-container');
         for(let i=0; i<15; i++) {
-            const eGroup = new THREE.Group();
-            const eHull = new THREE.Mesh(new THREE.BoxGeometry(40, 25, 140), new THREE.MeshStandardMaterial({color: 0x222222}));
-            eHull.position.y = 12; eGroup.add(eHull);
-            const marker = new THREE.Mesh(new THREE.SphereGeometry(20, 8, 8), new THREE.MeshBasicMaterial({color: 0xff0000, wireframe: true}));
-            marker.position.y = 150; eGroup.add(marker);
+            const eGroup = CruiserBuilder.build();
             const ang = Math.random() * Math.PI * 2, dist = 6000 + Math.random() * 9000;
             eGroup.position.set(Math.cos(ang)*dist, 0, Math.sin(ang)*dist);
+            eGroup.rotation.y = Math.random() * Math.PI;
             scene.add(eGroup);
             const blip = document.createElement('div'); blip.className = 'radar-blip';
             blipContainer.appendChild(blip);
@@ -196,6 +228,9 @@
             player.rotation.y -= mv.x * 0.005;
             player.translateZ(shipSpeedVal);
 
+            // Emit wake trails based on speed
+            if (Math.random() < Math.abs(shipSpeedVal)/3) createWake();
+
             const kts = Math.abs(Math.floor(shipSpeedVal * 12));
             document.getElementById('speed-display').innerText = `VELOCITY: ${kts} KTS`;
             document.getElementById('player-blip').style.transform = `translate(-50%, -50%) rotate(0deg)`;
@@ -207,7 +242,6 @@
                 const dist = Math.sqrt(dx*dx + dz*dz);
                 if(dist < 15000) {
                     const relAngle = Math.atan2(dx, dz) - player.rotation.y;
-                    // FIX: Flipped RX calculation to correct left/right orientation
                     const rx = -Math.sin(relAngle) * (dist / 15000) * 50; 
                     const ry = Math.cos(relAngle) * (dist / 15000) * 50;
                     e.blip.style.display = 'block'; e.blip.style.left = (50 + rx) + '%'; e.blip.style.top = (50 - ry) + '%';
@@ -215,8 +249,16 @@
             });
 
             for(let i=activeParticles.length-1; i>=0; i--) {
-                const p = activeParticles[i]; p.mesh.position.add(p.velocity); p.life -= p.decay;
-                p.mesh.material.opacity = p.life; if(p.life <= 0) { scene.remove(p.mesh); activeParticles.splice(i, 1); }
+                const p = activeParticles[i]; 
+                p.mesh.position.add(p.velocity); 
+                p.life -= p.decay;
+                if(p.isWake) { 
+                    p.mesh.scale.multiplyScalar(1.02);
+                    p.mesh.material.opacity = p.life * 0.4;
+                } else {
+                    p.mesh.material.opacity = p.life;
+                }
+                if(p.life <= 0) { scene.remove(p.mesh); activeParticles.splice(i, 1); }
             }
 
             for(let i=shells.length-1; i>=0; i--) {
