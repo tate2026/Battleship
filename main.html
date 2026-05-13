@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>USS Montana: Stabilized Command</title>
+    <title>USS Montana: Directional Radar</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000b1a; font-family: 'Courier New', monospace; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: #00ff00; pointer-events: none; z-index: 100; text-shadow: 2px 2px 2px #000; }
@@ -19,7 +19,15 @@
         }
         @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .radar-blip { position: absolute; width: 6px; height: 6px; background: #ff0000; border-radius: 50%; transform: translate(-50%, -50%); }
-        #player-blip { position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; background: #00ffff; clip-path: polygon(50% 0%, 0% 100%, 100% 100%); transform: translate(-50%, -50%); }
+        
+        /* PLAYER BLIP: Now rotates based on ship heading */
+        #player-blip { 
+            position: absolute; top: 50%; left: 50%; width: 12px; height: 12px; 
+            background: #00ffff; clip-path: polygon(50% 0%, 0% 100%, 100% 100%); 
+            transform: translate(-50%, -50%); 
+            z-index: 10;
+        }
+
         .stick-container { position: absolute; border-radius: 50%; background: rgba(0,40,60,0.5); border: 2px solid rgba(0,255,0,0.2); z-index: 200; backdrop-filter: blur(8px); }
         .knob { position: absolute; width: 40px; height: 40px; background: #00ff00; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 10px #00ff00; }
         #stick-move { bottom: 30px; left: 30px; width: 110px; height: 110px; }
@@ -69,16 +77,50 @@
         sun.position.set(3000, 5000, 2000);
         scene.add(sun, new THREE.AmbientLight(0xffffff, 1.0));
 
-        const matSteel = new THREE.MeshStandardMaterial({ color: 0x546e7a, metalness: 0.8 });
-        const matDeck = new THREE.MeshStandardMaterial({ color: 0x8d6e63 });
+        const matSteel = new THREE.MeshStandardMaterial({ color: 0x546e7a, metalness: 0.8, roughness: 0.3 });
+        const matDeck = new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 0.9 });
         const matGun = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.95 });
+        const matWhite = new THREE.MeshStandardMaterial({ color: 0xffffff });
 
-        // --- PLAYER SHIP ---
-        const player = new THREE.Group();
-        const hull = new THREE.Mesh(new THREE.BoxGeometry(36, 18, 340), matSteel);
-        hull.position.y = 8; player.add(hull);
-        const deck = new THREE.Mesh(new THREE.BoxGeometry(34, 1.5, 334), matDeck);
-        deck.position.y = 17.5; player.add(deck);
+        // --- PLAYER SHIP BUILDER ---
+        class MontanaBuilder {
+            static build() {
+                const group = new THREE.Group();
+                const hull = new THREE.Mesh(new THREE.BoxGeometry(36, 18, 340), matSteel);
+                hull.position.y = 8; group.add(hull);
+                const deck = new THREE.Mesh(new THREE.BoxGeometry(34, 1.5, 334), matDeck);
+                deck.position.y = 17.5; group.add(deck);
+                const lvl1 = new THREE.Mesh(new THREE.BoxGeometry(18, 15, 70), matSteel);
+                lvl1.position.set(0, 25, -10); group.add(lvl1);
+                const lvl2 = new THREE.Mesh(new THREE.BoxGeometry(15, 12, 40), matSteel);
+                lvl2.position.set(0, 38, 5); group.add(lvl2);
+                const tower = new THREE.Mesh(new THREE.BoxGeometry(10, 8, 15), matGun);
+                tower.position.set(0, 48, 15); group.add(tower);
+                [-35, -75].forEach(z => {
+                    const s = new THREE.Mesh(new THREE.CylinderGeometry(6, 6.5, 35), matGun);
+                    s.position.set(0, 35, z); group.add(s);
+                    const g = new THREE.Mesh(new THREE.TorusGeometry(6.5, 0.6, 8, 16), matSteel);
+                    g.rotation.x = Math.PI/2; g.position.set(0, 52, z); group.add(g);
+                });
+                for (let s of [-1, 1]) {
+                    [-110, -80, -50, -20, 10, 40, 70, 100].forEach(z => {
+                        const t = new THREE.Mesh(new THREE.BoxGeometry(6, 6, 10), matSteel);
+                        t.position.set(s*17, 20, z); group.add(t);
+                        const g = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 12), matGun);
+                        g.rotation.x = Math.PI/2; g.position.set(s*17, 20, z+7); group.add(g);
+                    });
+                }
+                for (let s of [-1, 1]) {
+                    [-120, -140, -160].forEach(z => {
+                        const b = new THREE.Mesh(new THREE.CapsuleGeometry(3, 10, 4), matWhite);
+                        b.rotation.x = Math.PI/2; b.position.set(s*14, 18, z); group.add(b);
+                    });
+                }
+                return group;
+            }
+        }
+
+        const player = MontanaBuilder.build();
         scene.add(player);
 
         const mainTurrets = [-135, -95, 90, 130].map(z => {
@@ -138,7 +180,7 @@
                 const pos = new THREE.Vector3(), quat = new THREE.Quaternion();
                 b.getWorldPosition(pos); b.getWorldQuaternion(quat);
                 s.position.copy(pos);
-                shells.push({ m: s, v: new THREE.Vector3(0,1,0).applyQuaternion(quat).multiplyScalar(70), g: 0.04 });
+                shells.push({ m: s, v: new THREE.Vector3(0,1,0).applyQuaternion(quat).multiplyScalar(75), g: 0.04 });
                 scene.add(s);
             }));
         });
@@ -149,8 +191,11 @@
             player.rotation.y -= mv.x * 0.005;
             player.translateZ(speed);
 
-            // Radar
+            // RADAR UPDATE
+            // Rotates the player's blip (triangle) to match ship rotation
+            // We use -player.rotation.y because DOM rotation and 3D rotation directions often invert
             document.getElementById('player-blip').style.transform = `translate(-50%, -50%) rotate(${-player.rotation.y}rad)`;
+
             enemies.forEach(e => {
                 if(e.sinking) { e.mesh.position.y -= 0.5; e.blip.style.display='none'; return; }
                 const dx = e.mesh.position.x - player.position.x, dz = e.mesh.position.z - player.position.z;
@@ -178,15 +223,9 @@
                 t.pivot.rotation.x = THREE.MathUtils.lerp(t.pivot.rotation.x, am.y * 0.7, 0.1);
             });
 
-            // FIXED CAMERA LOGIC: We calculate the offset relative to the ship EVERY frame
-            // This prevents the ship from sliding to the side of the screen during turns.
-            const cameraRelativeOffset = new THREE.Vector3(0, 50, -250); 
-            const cameraWorldPosition = cameraRelativeOffset.applyMatrix4(player.matrixWorld);
-            
-            // Using a higher lerp factor (0.2) or direct assignment makes the ship stay centered
-            camera.position.lerp(cameraWorldPosition, 0.2); 
-            
-            // The lookAt target also follows the ship's orientation perfectly
+            // Stabilized Camera
+            const camPos = new THREE.Vector3(0, 50, -250).applyMatrix4(player.matrixWorld);
+            camera.position.lerp(camPos, 0.2); 
             const lookAtTarget = new THREE.Vector3(0, 20, 400).applyMatrix4(player.matrixWorld);
             camera.lookAt(lookAtTarget);
 
