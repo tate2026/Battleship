@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>USS Montana: Sea-Level Detail</title>
+    <title>USS Montana: Full Restoration</title>
     <style>
         body { margin: 0; overflow: hidden; background: #001a2d; font-family: 'Courier New', monospace; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: #00ff00; pointer-events: none; z-index: 100; text-shadow: 2px 2px 2px #000; }
@@ -21,7 +21,7 @@
 </head>
 <body>
     <div id="ui">
-        <div style="font-size: 20px; font-weight: 900; letter-spacing: 2px;">BB-67 MONTANA CLASS</div>
+        <div style="font-size: 20px; font-weight: 900; letter-spacing: 2px;">BB-67 USS MONTANA</div>
         <hr style="border: 0; border-top: 1px solid #00ff00; margin: 5px 0;">
         <div id="speed">VELOCITY: 0 KTS</div>
         <div id="score">HOSTILES SUNK: 0</div>
@@ -40,64 +40,69 @@
 
         // --- SCENE SETUP ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x3e90ff);
-        scene.fog = new THREE.Fog(0x3e90ff, 100, 18000); 
+        scene.background = new THREE.Color(0x448aff);
+        scene.fog = new THREE.Fog(0x448aff, 200, 15000); 
         
-        const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 1, 60000);
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 60000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        const sun = new THREE.DirectionalLight(0xffffff, 3.0);
-        sun.position.set(1000, 1500, 1000);
-        scene.add(sun, new THREE.AmbientLight(0xffffff, 1.2));
+        const sun = new THREE.DirectionalLight(0xffffff, 3.2);
+        sun.position.set(1000, 2000, 1000);
+        scene.add(sun, new THREE.AmbientLight(0xffffff, 1.0));
 
-        // --- MATERIALS ---
-        const steel = new THREE.MeshStandardMaterial({ color: 0x546e7a, metalness: 0.8, roughness: 0.3 });
-        const wood = new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 0.9 });
-        const black = new THREE.MeshStandardMaterial({ color: 0x111111 });
+        // --- SHIP BLUEPRINTS ---
+        const steelMat = new THREE.MeshStandardMaterial({ color: 0x546e7a, metalness: 0.7, roughness: 0.4 });
+        const woodMat = new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 1.0 });
+        const metalBlack = new THREE.MeshStandardMaterial({ color: 0x212121, metalness: 0.9 });
 
-        // --- SHIP FACTORY ---
         class ShipFactory {
-            static createPlayer() {
+            static createPlayerShip() {
                 const group = new THREE.Group();
-                
-                // Detailed Hull
-                const hull = new THREE.Mesh(new THREE.BoxGeometry(32, 12, 320), steel);
-                hull.position.y = 5; group.add(hull);
 
-                const deck = new THREE.Mesh(new THREE.BoxGeometry(30, 1, 310), wood);
-                deck.position.y = 11.1; group.add(deck);
+                // 1. MAIN HULL (Restored Size)
+                const hull = new THREE.Mesh(new THREE.BoxGeometry(34, 14, 320), steelMat);
+                hull.position.y = 5;
+                group.add(hull);
 
-                // Multi-Tier Bridge Complex
-                const bridgeBase = new THREE.Mesh(new THREE.BoxGeometry(12, 14, 45), steel);
-                bridgeBase.position.set(0, 18, 5); group.add(bridgeBase);
+                // 2. MAIN DECK (Restored Detail)
+                const deck = new THREE.Mesh(new THREE.BoxGeometry(32, 1.2, 314), woodMat);
+                deck.position.y = 12.1;
+                group.add(deck);
 
-                const upperBridge = new THREE.Mesh(new THREE.BoxGeometry(14, 8, 20), steel);
-                upperBridge.position.set(0, 26, 12); group.add(upperBridge);
+                // 3. SUPERSTRUCTURE (The Bridge Complex)
+                const bridgeLower = new THREE.Mesh(new THREE.BoxGeometry(14, 12, 50), steelMat);
+                bridgeLower.position.set(0, 18, 0);
+                group.add(bridgeLower);
 
-                // Funnels
-                [-25, -55].forEach(z => {
-                    const f = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 22), black);
-                    f.position.set(0, 22, z); group.add(f);
-                });
+                const bridgeUpper = new THREE.Mesh(new THREE.BoxGeometry(16, 8, 20), steelMat);
+                bridgeUpper.position.set(0, 26, 15);
+                group.add(bridgeUpper);
 
-                // Secondary Side Batteries
-                for(let side of [-1, 1]) {
-                    for(let z of [-80, -40, 0, 40, 80]) {
-                        const sec = new THREE.Mesh(new THREE.BoxGeometry(5, 4, 7), steel);
-                        sec.position.set(side * 14, 13, z);
+                // 4. FUNNELS
+                for (let z of [-20, -60]) {
+                    const f = new THREE.Mesh(new THREE.CylinderGeometry(5, 5.5, 25, 12), metalBlack);
+                    f.position.set(0, 24, z);
+                    group.add(f);
+                }
+
+                // 5. SECONDARY BATTERIES (5-inch side guns)
+                for (let side of [-1, 1]) {
+                    for (let z of [-90, -45, 0, 45, 90]) {
+                        const sec = new THREE.Mesh(new THREE.BoxGeometry(5, 4, 8), steelMat);
+                        sec.position.set(side * 15, 14, z);
                         group.add(sec);
                     }
                 }
 
-                // Lifeboats
-                for(let side of [-1, 1]) {
-                    for(let z of [-100, -115]) {
-                        const boat = new THREE.Mesh(new THREE.CapsuleGeometry(2.5, 8, 4, 8), new THREE.MeshStandardMaterial({color:0xffffff}));
+                // 6. LIFEBOATS
+                for (let side of [-1, 1]) {
+                    for (let z of [-110, -125]) {
+                        const boat = new THREE.Mesh(new THREE.CapsuleGeometry(2.5, 8, 4, 8), new THREE.MeshStandardMaterial({color: 0xf5f5f5}));
                         boat.rotation.x = Math.PI/2;
-                        boat.position.set(side * 12, 12, z);
+                        boat.position.set(side * 12, 13.5, z);
                         group.add(boat);
                     }
                 }
@@ -105,22 +110,21 @@
                 return group;
             }
 
-            static createEnemy() {
+            static createEnemyCruiser() {
                 const group = new THREE.Group();
-                const camo = new THREE.MeshStandardMaterial({ color: 0x2c3e50 });
+                const enemyMat = new THREE.MeshStandardMaterial({ color: 0x37474f, metalness: 0.5 });
                 
-                // Aggressive Cruiser Hull
-                const h = new THREE.Mesh(new THREE.ConeGeometry(18, 140, 4), camo);
-                h.rotation.x = Math.PI/2; h.position.y = 5; group.add(h);
+                // Sleek Cruiser Hull
+                const h = new THREE.Mesh(new THREE.ConeGeometry(15, 130, 4), enemyMat);
+                h.rotation.x = Math.PI/2; h.position.y = 4; group.add(h);
 
-                const tower = new THREE.Mesh(new THREE.BoxGeometry(10, 15, 25), camo);
-                tower.position.set(0, 12, 10); group.add(tower);
+                const tower = new THREE.Mesh(new THREE.BoxGeometry(10, 15, 30), enemyMat);
+                tower.position.set(0, 12, 5); group.add(tower);
 
-                // Enemy turrets
-                [35, -35].forEach(z => {
-                    const t = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 10), camo);
-                    t.position.set(0, 11, z);
-                    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 20), black);
+                [30, -30].forEach(z => {
+                    const t = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 12), enemyMat);
+                    t.position.set(0, 12, z);
+                    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 20), metalBlack);
                     b.rotation.x = Math.PI/2; b.position.z = 10; t.add(b);
                     group.add(t);
                 });
@@ -128,59 +132,60 @@
             }
         }
 
-        // --- WORLD ELEMENTS ---
-        const player = ShipFactory.createPlayer();
+        // --- GAME OBJECTS ---
+        const player = ShipFactory.createPlayerShip();
         scene.add(player);
 
-        const turrets = [-125, -90, 85, 120].map(z => {
-            const t = new THREE.Group(); t.position.set(0, 11.5, z);
-            const base = new THREE.Mesh(new THREE.BoxGeometry(16, 6, 22), steel);
+        // MAIN TURRETS (The 16-inch batteries)
+        const turrets = [-125, -85, 75, 115].map(z => {
+            const t = new THREE.Group(); t.position.set(0, 12.7, z);
+            const base = new THREE.Mesh(new THREE.BoxGeometry(18, 6, 24), steelMat);
             t.add(base);
             const pivot = new THREE.Group();
-            const barrels = [-4.5, 0, 4.5].map(x => {
-                const b = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.9, 40), black);
-                b.rotation.x = Math.PI/2; b.position.set(x, 1, 18); pivot.add(b); return b;
+            const barrels = [-5, 0, 5].map(x => {
+                const b = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.1, 45), metalBlack);
+                b.rotation.x = Math.PI/2; b.position.set(x, 1, 20); pivot.add(b); return b;
             });
             t.add(pivot); player.add(t);
             return { group: t, pivot };
         });
 
-        const ocean = new THREE.Mesh(new THREE.PlaneGeometry(150000, 150000), new THREE.MeshStandardMaterial({color: 0x01579b, roughness: 0.1, metalness: 0.4}));
+        // WORLD
+        const ocean = new THREE.Mesh(new THREE.PlaneGeometry(100000, 100000), new THREE.MeshStandardMaterial({color: 0x01579b, roughness: 0.2}));
         ocean.rotation.x = -Math.PI/2; scene.add(ocean);
 
-        const islands = Array(20).fill(0).map(() => {
-            const r = 500 + Math.random()*800;
-            const isl = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 6), new THREE.MeshStandardMaterial({color: 0x2e7d32}));
-            isl.scale.y = 0.1;
-            isl.position.set((Math.random()-0.5)*40000, -30, (Math.random()-0.5)*40000);
+        const islands = Array(15).fill(0).map(() => {
+            const r = 400 + Math.random()*1000;
+            const isl = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 6), new THREE.MeshStandardMaterial({color: 0x1b5e20}));
+            isl.scale.y = 0.08;
+            isl.position.set((Math.random()-0.5)*40000, -20, (Math.random()-0.5)*40000);
             scene.add(isl);
             return { pos: isl.position, r: r * 0.85 };
         });
 
         const enemies = [];
-        const spawn = () => {
-            const e = ShipFactory.createEnemy();
-            const ang = Math.random()*Math.PI*2, dist = 5000 + Math.random()*5000;
+        for(let i=0; i<12; i++) {
+            const e = ShipFactory.createEnemyCruiser();
+            const ang = Math.random()*Math.PI*2, dist = 6000 + Math.random()*6000;
             e.position.set(Math.cos(ang)*dist, 0, Math.sin(ang)*dist);
             scene.add(e);
             enemies.push({ mesh: e, sinking: false, hp: 4 });
-        };
-        for(let i=0; i<12; i++) spawn();
+        }
 
-        // --- SYSTEMS ---
+        // --- FX SYSTEM ---
         const projectiles = [], particles = [];
-        let mv = {x:0, y:0}, am = {x:0, y:0}, speed = 0, score = 0;
-
         function explosion(pos, col, count, size) {
             for(let i=0; i<count; i++) {
                 const p = new THREE.Mesh(new THREE.SphereGeometry(size), new THREE.MeshBasicMaterial({color: col, transparent: true}));
                 p.position.copy(pos);
-                const v = new THREE.Vector3((Math.random()-0.5)*18, Math.random()*12, (Math.random()-0.5)*18);
+                const v = new THREE.Vector3((Math.random()-0.5)*20, Math.random()*15, (Math.random()-0.5)*20);
                 scene.add(p);
                 particles.push({m:p, v, life:1.0, d:0.02});
             }
         }
 
+        // --- CONTROLS ---
+        let mv = {x:0, y:0}, am = {x:0, y:0}, speed = 0, score = 0;
         const bind = (id, obj) => {
             const el = document.getElementById(id), kn = el.querySelector('.knob');
             const fn = (e) => {
@@ -202,7 +207,7 @@
                 const p = new THREE.Vector3(); t.group.getWorldPosition(p);
                 const d = new THREE.Vector3(0,1,0).applyQuaternion(t.group.getWorldQuaternion(new THREE.Quaternion()));
                 shell.position.copy(p);
-                projectiles.push({m:shell, v:d.multiplyScalar(32), g:0.03});
+                projectiles.push({m:shell, v:d.multiplyScalar(35), g:0.03});
                 scene.add(shell);
                 explosion(p, 0xffaa00, 2, 2);
             });
@@ -213,27 +218,31 @@
             requestAnimationFrame(update);
             
             const prev = player.position.clone();
-            speed = THREE.MathUtils.lerp(speed, -mv.y * 1.8, 0.0018);
-            player.rotation.y -= mv.x * 0.0018 * (Math.abs(speed/1.8) + 0.2);
+            speed = THREE.MathUtils.lerp(speed, -mv.y * 2.0, 0.002);
+            player.rotation.y -= mv.x * 0.002 * (Math.abs(speed/2.0) + 0.2);
             player.translateZ(speed);
 
             islands.forEach(isl => {
-                if(player.position.distanceTo(isl.pos) < isl.r + 50) {
-                    player.position.copy(prev); speed *= -0.5;
+                if(player.position.distanceTo(isl.pos) < isl.r + 60) {
+                    player.position.copy(prev); speed *= -0.4;
                 }
             });
 
             projectiles.forEach((p, i) => {
                 p.m.position.add(p.v); p.v.y -= p.g;
                 if(p.m.position.y < 0) {
-                    explosion(p.m.position, 0xffffff, 5, 2);
+                    explosion(p.m.position, 0xffffff, 6, 2.5);
                     scene.remove(p.m); projectiles.splice(i,1);
                 } else {
                     enemies.forEach(en => {
-                        if(!en.sinking && p.m.position.distanceTo(en.mesh.position) < 80) {
-                            en.hp--; explosion(p.m.position, 0xff3300, 10, 5);
+                        if(!en.sinking && p.m.position.distanceTo(en.mesh.position) < 85) {
+                            en.hp--; explosion(p.m.position, 0xff4500, 12, 6);
                             scene.remove(p.m); projectiles.splice(i,1);
-                            if(en.hp <= 0) { en.sinking = true; score++; explosion(en.mesh.position, 0xff0000, 50, 15); document.getElementById('score').innerText = `HOSTILES SUNK: ${score}`; }
+                            if(en.hp <= 0) { 
+                                en.sinking = true; score++; 
+                                explosion(en.mesh.position, 0xff0000, 60, 20); // Restored Enemy Explosion
+                                document.getElementById('score').innerText = `HOSTILES SUNK: ${score}`; 
+                            }
                         }
                     });
                 }
@@ -246,17 +255,17 @@
             });
 
             turrets.forEach(t => {
-                t.group.rotation.y = THREE.MathUtils.lerp(t.group.rotation.y, -am.x * Math.PI, 0.07);
+                t.group.rotation.y = THREE.MathUtils.lerp(t.group.rotation.y, -am.x * Math.PI, 0.08);
             });
 
-            // CAMERA: Close & Low
-            const camTarget = new THREE.Vector3(0, 50, -580).applyMatrix4(player.matrixWorld);
-            camera.position.lerp(camTarget, 0.04);
+            // CAMERA: Sea-level & Stern-close
+            const camTarget = new THREE.Vector3(0, 45, -550).applyMatrix4(player.matrixWorld);
+            camera.position.lerp(camTarget, 0.05);
             camera.lookAt(player.position.clone().add(new THREE.Vector3(0, 30, 200)));
 
-            enemies.forEach(en => { if(en.sinking) { en.mesh.position.y -= 0.15; en.mesh.rotation.z += 0.004; } });
+            enemies.forEach(en => { if(en.sinking) { en.mesh.position.y -= 0.15; en.mesh.rotation.z += 0.005; } });
             
-            document.getElementById('speed').innerText = `VELOCITY: ${Math.abs(Math.floor((speed / 1.8) * 33))} KTS`;
+            document.getElementById('speed').innerText = `VELOCITY: ${Math.abs(Math.floor((speed / 2.0) * 35))} KTS`;
             renderer.render(scene, camera);
         }
 
