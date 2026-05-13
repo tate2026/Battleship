@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>USS Montana: Navigational Fix</title>
+    <title>USS Montana: Ballistics Restored</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000b1a; font-family: 'Courier New', monospace; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: #00ff00; pointer-events: none; z-index: 100; text-shadow: 2px 2px 2px #000; }
@@ -19,14 +19,11 @@
         }
         @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .radar-blip { position: absolute; width: 6px; height: 6px; background: #ff0000; border-radius: 50%; transform: translate(-50%, -50%); }
-        
-        /* FIXED PLAYER BLIP: Now represents the ship's forward heading */
         #player-blip { 
             position: absolute; top: 50%; left: 50%; width: 12px; height: 12px; 
             background: #00ffff; clip-path: polygon(50% 0%, 0% 100%, 100% 100%); 
             transform: translate(-50%, -50%); z-index: 10; 
         }
-
         .stick-container { position: absolute; border-radius: 50%; background: rgba(0,40,60,0.5); border: 2px solid rgba(0,255,0,0.2); z-index: 200; backdrop-filter: blur(8px); }
         .knob { position: absolute; width: 40px; height: 40px; background: #00ff00; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 10px #00ff00; }
         #stick-move { bottom: 30px; left: 30px; width: 110px; height: 110px; }
@@ -186,7 +183,12 @@
                 const pos = new THREE.Vector3(), quat = new THREE.Quaternion();
                 b.getWorldPosition(pos); b.getWorldQuaternion(quat);
                 s.position.copy(pos);
-                shells.push({ m: s, v: new THREE.Vector3(0,1,0).applyQuaternion(quat).multiplyScalar(75), g: 0.04 });
+                // INITIAL VELOCITY + GRAVITY PARAMETERS
+                shells.push({ 
+                    m: s, 
+                    v: new THREE.Vector3(0,1,0).applyQuaternion(quat).multiplyScalar(85), 
+                    g: 0.65 // Gravity force per frame
+                });
                 scene.add(s);
                 createExplosion(pos, 0xffaa00, 5, 2, 8);
             }));
@@ -201,9 +203,6 @@
 
             const kts = Math.abs(Math.floor(shipSpeedVal * 12));
             document.getElementById('speed-display').innerText = `VELOCITY: ${kts} KTS`;
-
-            // Since the radar logic rotates the world RELATIVE to the player,
-            // the triangle (player blip) should always point straight up (0 degrees).
             document.getElementById('player-blip').style.transform = `translate(-50%, -50%) rotate(0deg)`;
 
             enemies.forEach(e => {
@@ -211,16 +210,11 @@
                 const dx = e.mesh.position.x - player.position.x;
                 const dz = e.mesh.position.z - player.position.z;
                 const dist = Math.sqrt(dx*dx + dz*dz);
-                
                 if(dist < 15000) {
-                    // Coordinate rotation: keeps player "forward" as the top of the circle
                     const relAngle = Math.atan2(dx, dz) - player.rotation.y;
                     const rx = Math.sin(relAngle) * (dist / 15000) * 50;
                     const ry = Math.cos(relAngle) * (dist / 15000) * 50;
-                    
-                    e.blip.style.display = 'block';
-                    e.blip.style.left = (50 + rx) + '%';
-                    e.blip.style.top = (50 - ry) + '%';
+                    e.blip.style.display = 'block'; e.blip.style.left = (50 + rx) + '%'; e.blip.style.top = (50 - ry) + '%';
                 } else e.blip.style.display = 'none';
             });
 
@@ -228,13 +222,29 @@
                 const p = activeParticles[i]; p.mesh.position.add(p.velocity); p.life -= p.decay;
                 p.mesh.material.opacity = p.life; if(p.life <= 0) { scene.remove(p.mesh); activeParticles.splice(i, 1); }
             }
+
+            // RESTORED BALLISTIC BEHAVIOR
             for(let i=shells.length-1; i>=0; i--) {
-                const s = shells[i]; s.m.position.add(s.v); s.v.y -= s.g;
-                if(s.m.position.y < 0) { createExplosion(s.m.position, 0xffffff, 8, 3, 5); scene.remove(s.m); shells.splice(i,1); }
+                const s = shells[i]; 
+                s.m.position.add(s.v); // Apply current velocity
+                s.v.y -= s.g;          // Apply gravity to Y velocity component
+                
+                if(s.m.position.y < 0) { 
+                    createExplosion(s.m.position, 0xffffff, 8, 3, 5); 
+                    scene.remove(s.m); 
+                    shells.splice(i,1); 
+                }
                 else enemies.forEach(en => {
                     if(!en.sinking && s.m.position.distanceTo(en.mesh.position) < 120) {
-                        en.hp--; createExplosion(s.m.position, 0xff4400, 15, 5, 12); scene.remove(s.m); shells.splice(i,1);
-                        if(en.hp <= 0) { en.sinking=true; score++; document.getElementById('score').innerText = `HOSTILES SUNK: ${score}`; createExplosion(en.mesh.position, 0xff0000, 50, 15, 20); }
+                        en.hp--; 
+                        createExplosion(s.m.position, 0xff4400, 15, 5, 12); 
+                        scene.remove(s.m); 
+                        shells.splice(i,1);
+                        if(en.hp <= 0) { 
+                            en.sinking=true; score++; 
+                            document.getElementById('score').innerText = `HOSTILES SUNK: ${score}`; 
+                            createExplosion(en.mesh.position, 0xff0000, 50, 15, 20); 
+                        }
                     }
                 });
             }
