@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>USS Montana: Ballistics Update</title>
+    <title>USS Montana: Wide-Angle Combat</title>
     <style>
         body { margin: 0; overflow: hidden; background: #001a2d; font-family: 'Courier New', monospace; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: #00ff00; pointer-events: none; z-index: 100; text-shadow: 2px 2px 2px #000; }
@@ -43,7 +43,8 @@
         scene.background = new THREE.Color(0x448aff);
         scene.fog = new THREE.Fog(0x448aff, 200, 15000); 
         
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 60000);
+        // FOV increased to 85 for a much larger viewing angle
+        const camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 1, 60000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -53,7 +54,7 @@
         sun.position.set(1000, 2000, 1000);
         scene.add(sun, new THREE.AmbientLight(0xffffff, 1.0));
 
-        // --- SHIP BLUEPRINTS ---
+        // --- SHIP BLUEPRINTS (Restored and Maintained) ---
         const steelMat = new THREE.MeshStandardMaterial({ color: 0x546e7a, metalness: 0.7, roughness: 0.4 });
         const woodMat = new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 1.0 });
         const metalBlack = new THREE.MeshStandardMaterial({ color: 0x212121, metalness: 0.9 });
@@ -109,20 +110,18 @@
         const player = ShipFactory.createPlayerShip();
         scene.add(player);
 
-        // UPDATED TURRETS: Support for Y-axis elevation
         const turrets = [-125, -85, 75, 115].map(z => {
             const tGroup = new THREE.Group(); tGroup.position.set(0, 12.7, z);
             const base = new THREE.Mesh(new THREE.BoxGeometry(18, 6, 24), steelMat);
             tGroup.add(base);
 
-            // Pivot for elevation
             const elevationPivot = new THREE.Group();
             elevationPivot.position.set(0, 2, 0); 
             
             const barrels = [-5, 0, 5].map(x => {
                 const b = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.1, 45), metalBlack);
                 b.rotation.x = Math.PI/2;
-                b.position.set(x, 0, 20); // Relative to elevationPivot
+                b.position.set(x, 0, 20);
                 elevationPivot.add(b);
                 return b;
             });
@@ -187,19 +186,11 @@
                     const shell = new THREE.Mesh(new THREE.SphereGeometry(3), new THREE.MeshBasicMaterial({color: 0xffea00}));
                     const worldPos = new THREE.Vector3();
                     b.getWorldPosition(worldPos);
-                    
-                    // Direction based on both turret rotation and barrel elevation
                     const worldQuat = new THREE.Quaternion();
                     b.getWorldQuaternion(worldQuat);
-                    const direction = new THREE.Vector3(0, 1, 0).applyQuaternion(worldQuat); // Cylinder up is Y
-                    
+                    const direction = new THREE.Vector3(0, 1, 0).applyQuaternion(worldQuat);
                     shell.position.copy(worldPos);
-                    projectiles.push({
-                        m: shell, 
-                        v: direction.multiplyScalar(40), // Increased velocity
-                        g: 0.04, // Gravity
-                        life: 300 // Frames before auto-cleanup if it flies too far
-                    });
+                    projectiles.push({ m: shell, v: direction.multiplyScalar(45), g: 0.04, life: 400 });
                     scene.add(shell);
                     explosion(worldPos, 0xffaa00, 2, 2);
                 });
@@ -221,17 +212,14 @@
                 }
             });
 
-            // UPDATED SHELL BEHAVIOR
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const p = projectiles[i];
                 p.m.position.add(p.v);
-                p.v.y -= p.g; // Apply gravity
+                p.v.y -= p.g;
                 p.life--;
-
                 if(p.m.position.y < 0 || p.life <= 0) {
                     explosion(p.m.position, 0xffffff, 6, 2.5);
-                    scene.remove(p.m);
-                    projectiles.splice(i, 1);
+                    scene.remove(p.m); projectiles.splice(i, 1);
                 } else {
                     enemies.forEach(en => {
                         if(!en.sinking && p.m.position.distanceTo(en.mesh.position) < 85) {
@@ -253,18 +241,15 @@
                 if(p.life <= 0) { scene.remove(p.m); particles.splice(i,1); }
             });
 
-            // UPDATED GUN BEHAVIOR (Elevation & Rotation)
             turrets.forEach(t => {
-                // Rotation (Left/Right)
                 t.group.rotation.y = THREE.MathUtils.lerp(t.group.rotation.y, -am.x * Math.PI, 0.08);
-                // Elevation (Up/Down) - Aiming stick Y axis controls this
-                const targetElevation = am.y * 0.6; // Max 0.6 rad (~35 degrees)
-                t.pivot.rotation.x = THREE.MathUtils.lerp(t.pivot.rotation.x, targetElevation, 0.08);
+                t.pivot.rotation.x = THREE.MathUtils.lerp(t.pivot.rotation.x, am.y * 0.6, 0.08);
             });
 
-            const camTarget = new THREE.Vector3(0, 45, -550).applyMatrix4(player.matrixWorld);
+            // CAMERA: Low and Wide
+            const camTarget = new THREE.Vector3(0, 45, -530).applyMatrix4(player.matrixWorld);
             camera.position.lerp(camTarget, 0.05);
-            camera.lookAt(player.position.clone().add(new THREE.Vector3(0, 30, 200)));
+            camera.lookAt(player.position.clone().add(new THREE.Vector3(0, 20, 250)));
 
             enemies.forEach(en => { if(en.sinking) { en.mesh.position.y -= 0.15; en.mesh.rotation.z += 0.005; } });
             
