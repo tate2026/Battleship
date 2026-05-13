@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>USS Montana: Full Restoration</title>
+    <title>USS Montana: Ballistics Update</title>
     <style>
         body { margin: 0; overflow: hidden; background: #001a2d; font-family: 'Courier New', monospace; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: #00ff00; pointer-events: none; z-index: 100; text-shadow: 2px 2px 2px #000; }
@@ -61,73 +61,46 @@
         class ShipFactory {
             static createPlayerShip() {
                 const group = new THREE.Group();
-
-                // 1. MAIN HULL (Restored Size)
                 const hull = new THREE.Mesh(new THREE.BoxGeometry(34, 14, 320), steelMat);
-                hull.position.y = 5;
-                group.add(hull);
+                hull.position.y = 5; group.add(hull);
 
-                // 2. MAIN DECK (Restored Detail)
                 const deck = new THREE.Mesh(new THREE.BoxGeometry(32, 1.2, 314), woodMat);
-                deck.position.y = 12.1;
-                group.add(deck);
+                deck.position.y = 12.1; group.add(deck);
 
-                // 3. SUPERSTRUCTURE (The Bridge Complex)
                 const bridgeLower = new THREE.Mesh(new THREE.BoxGeometry(14, 12, 50), steelMat);
-                bridgeLower.position.set(0, 18, 0);
-                group.add(bridgeLower);
+                bridgeLower.position.set(0, 18, 0); group.add(bridgeLower);
 
                 const bridgeUpper = new THREE.Mesh(new THREE.BoxGeometry(16, 8, 20), steelMat);
-                bridgeUpper.position.set(0, 26, 15);
-                group.add(bridgeUpper);
+                bridgeUpper.position.set(0, 26, 15); group.add(bridgeUpper);
 
-                // 4. FUNNELS
                 for (let z of [-20, -60]) {
                     const f = new THREE.Mesh(new THREE.CylinderGeometry(5, 5.5, 25, 12), metalBlack);
-                    f.position.set(0, 24, z);
-                    group.add(f);
+                    f.position.set(0, 24, z); group.add(f);
                 }
 
-                // 5. SECONDARY BATTERIES (5-inch side guns)
                 for (let side of [-1, 1]) {
                     for (let z of [-90, -45, 0, 45, 90]) {
                         const sec = new THREE.Mesh(new THREE.BoxGeometry(5, 4, 8), steelMat);
-                        sec.position.set(side * 15, 14, z);
-                        group.add(sec);
+                        sec.position.set(side * 15, 14, z); group.add(sec);
                     }
                 }
 
-                // 6. LIFEBOATS
                 for (let side of [-1, 1]) {
                     for (let z of [-110, -125]) {
                         const boat = new THREE.Mesh(new THREE.CapsuleGeometry(2.5, 8, 4, 8), new THREE.MeshStandardMaterial({color: 0xf5f5f5}));
-                        boat.rotation.x = Math.PI/2;
-                        boat.position.set(side * 12, 13.5, z);
-                        group.add(boat);
+                        boat.rotation.x = Math.PI/2; boat.position.set(side * 12, 13.5, z); group.add(boat);
                     }
                 }
-
                 return group;
             }
 
             static createEnemyCruiser() {
                 const group = new THREE.Group();
                 const enemyMat = new THREE.MeshStandardMaterial({ color: 0x37474f, metalness: 0.5 });
-                
-                // Sleek Cruiser Hull
                 const h = new THREE.Mesh(new THREE.ConeGeometry(15, 130, 4), enemyMat);
                 h.rotation.x = Math.PI/2; h.position.y = 4; group.add(h);
-
                 const tower = new THREE.Mesh(new THREE.BoxGeometry(10, 15, 30), enemyMat);
                 tower.position.set(0, 12, 5); group.add(tower);
-
-                [30, -30].forEach(z => {
-                    const t = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 12), enemyMat);
-                    t.position.set(0, 12, z);
-                    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 20), metalBlack);
-                    b.rotation.x = Math.PI/2; b.position.z = 10; t.add(b);
-                    group.add(t);
-                });
                 return group;
             }
         }
@@ -136,29 +109,36 @@
         const player = ShipFactory.createPlayerShip();
         scene.add(player);
 
-        // MAIN TURRETS (The 16-inch batteries)
+        // UPDATED TURRETS: Support for Y-axis elevation
         const turrets = [-125, -85, 75, 115].map(z => {
-            const t = new THREE.Group(); t.position.set(0, 12.7, z);
+            const tGroup = new THREE.Group(); tGroup.position.set(0, 12.7, z);
             const base = new THREE.Mesh(new THREE.BoxGeometry(18, 6, 24), steelMat);
-            t.add(base);
-            const pivot = new THREE.Group();
+            tGroup.add(base);
+
+            // Pivot for elevation
+            const elevationPivot = new THREE.Group();
+            elevationPivot.position.set(0, 2, 0); 
+            
             const barrels = [-5, 0, 5].map(x => {
                 const b = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.1, 45), metalBlack);
-                b.rotation.x = Math.PI/2; b.position.set(x, 1, 20); pivot.add(b); return b;
+                b.rotation.x = Math.PI/2;
+                b.position.set(x, 0, 20); // Relative to elevationPivot
+                elevationPivot.add(b);
+                return b;
             });
-            t.add(pivot); player.add(t);
-            return { group: t, pivot };
+
+            tGroup.add(elevationPivot);
+            player.add(tGroup);
+            return { group: tGroup, pivot: elevationPivot, barrels: barrels };
         });
 
-        // WORLD
         const ocean = new THREE.Mesh(new THREE.PlaneGeometry(100000, 100000), new THREE.MeshStandardMaterial({color: 0x01579b, roughness: 0.2}));
         ocean.rotation.x = -Math.PI/2; scene.add(ocean);
 
         const islands = Array(15).fill(0).map(() => {
             const r = 400 + Math.random()*1000;
             const isl = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 6), new THREE.MeshStandardMaterial({color: 0x1b5e20}));
-            isl.scale.y = 0.08;
-            isl.position.set((Math.random()-0.5)*40000, -20, (Math.random()-0.5)*40000);
+            isl.scale.y = 0.08; isl.position.set((Math.random()-0.5)*40000, -20, (Math.random()-0.5)*40000);
             scene.add(isl);
             return { pos: isl.position, r: r * 0.85 };
         });
@@ -203,13 +183,26 @@
         
         document.getElementById('fire-btn').addEventListener('pointerdown', () => {
             turrets.forEach(t => {
-                const shell = new THREE.Mesh(new THREE.SphereGeometry(3), new THREE.MeshBasicMaterial({color: 0xffea00}));
-                const p = new THREE.Vector3(); t.group.getWorldPosition(p);
-                const d = new THREE.Vector3(0,1,0).applyQuaternion(t.group.getWorldQuaternion(new THREE.Quaternion()));
-                shell.position.copy(p);
-                projectiles.push({m:shell, v:d.multiplyScalar(35), g:0.03});
-                scene.add(shell);
-                explosion(p, 0xffaa00, 2, 2);
+                t.barrels.forEach(b => {
+                    const shell = new THREE.Mesh(new THREE.SphereGeometry(3), new THREE.MeshBasicMaterial({color: 0xffea00}));
+                    const worldPos = new THREE.Vector3();
+                    b.getWorldPosition(worldPos);
+                    
+                    // Direction based on both turret rotation and barrel elevation
+                    const worldQuat = new THREE.Quaternion();
+                    b.getWorldQuaternion(worldQuat);
+                    const direction = new THREE.Vector3(0, 1, 0).applyQuaternion(worldQuat); // Cylinder up is Y
+                    
+                    shell.position.copy(worldPos);
+                    projectiles.push({
+                        m: shell, 
+                        v: direction.multiplyScalar(40), // Increased velocity
+                        g: 0.04, // Gravity
+                        life: 300 // Frames before auto-cleanup if it flies too far
+                    });
+                    scene.add(shell);
+                    explosion(worldPos, 0xffaa00, 2, 2);
+                });
             });
         });
 
@@ -228,11 +221,17 @@
                 }
             });
 
-            projectiles.forEach((p, i) => {
-                p.m.position.add(p.v); p.v.y -= p.g;
-                if(p.m.position.y < 0) {
+            // UPDATED SHELL BEHAVIOR
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+                p.m.position.add(p.v);
+                p.v.y -= p.g; // Apply gravity
+                p.life--;
+
+                if(p.m.position.y < 0 || p.life <= 0) {
                     explosion(p.m.position, 0xffffff, 6, 2.5);
-                    scene.remove(p.m); projectiles.splice(i,1);
+                    scene.remove(p.m);
+                    projectiles.splice(i, 1);
                 } else {
                     enemies.forEach(en => {
                         if(!en.sinking && p.m.position.distanceTo(en.mesh.position) < 85) {
@@ -240,13 +239,13 @@
                             scene.remove(p.m); projectiles.splice(i,1);
                             if(en.hp <= 0) { 
                                 en.sinking = true; score++; 
-                                explosion(en.mesh.position, 0xff0000, 60, 20); // Restored Enemy Explosion
+                                explosion(en.mesh.position, 0xff0000, 60, 20);
                                 document.getElementById('score').innerText = `HOSTILES SUNK: ${score}`; 
                             }
                         }
                     });
                 }
-            });
+            }
 
             particles.forEach((p, i) => {
                 p.m.position.add(p.v); p.life -= p.d;
@@ -254,11 +253,15 @@
                 if(p.life <= 0) { scene.remove(p.m); particles.splice(i,1); }
             });
 
+            // UPDATED GUN BEHAVIOR (Elevation & Rotation)
             turrets.forEach(t => {
+                // Rotation (Left/Right)
                 t.group.rotation.y = THREE.MathUtils.lerp(t.group.rotation.y, -am.x * Math.PI, 0.08);
+                // Elevation (Up/Down) - Aiming stick Y axis controls this
+                const targetElevation = am.y * 0.6; // Max 0.6 rad (~35 degrees)
+                t.pivot.rotation.x = THREE.MathUtils.lerp(t.pivot.rotation.x, targetElevation, 0.08);
             });
 
-            // CAMERA: Sea-level & Stern-close
             const camTarget = new THREE.Vector3(0, 45, -550).applyMatrix4(player.matrixWorld);
             camera.position.lerp(camTarget, 0.05);
             camera.lookAt(player.position.clone().add(new THREE.Vector3(0, 30, 200)));
